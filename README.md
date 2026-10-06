@@ -195,6 +195,13 @@ start API + coordinator + web
 
 SQLite needs no separate database service. Set `DATABASE_URL` to PostgreSQL when a database service is required.
 
+Backend commands:
+
+```text
+uv run alembic upgrade head                                  # apply migrations
+uv run uvicorn api.main:app --reload --port 8000             # start the API
+```
+
 ## Testing
 
 Tests are required, not optional.

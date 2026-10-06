@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import UTC, datetime
 
-from kallula_api.request_id import get_request_id
+from api.request_id import get_request_id
 
 _STANDARD_ATTRS = frozenset(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {
     "message",

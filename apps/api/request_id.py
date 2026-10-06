@@ -9,7 +9,7 @@ from starlette.responses import Response
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-logger = logging.getLogger("kallula_api.request")
+logger = logging.getLogger("api.request")
 
 
 def get_request_id() -> str | None:

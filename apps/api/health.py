@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 from starlette.requests import Request
 
-from kallula_api.db import DatabaseUnavailableError, check_database
-from kallula_api.problems import problem_response
+from api.problems import problem_response
+from persistence.db import DatabaseUnavailableError, check_database
 
 router = APIRouter(tags=["health"])
 
@@ -15,7 +15,7 @@ async def live() -> dict[str, str]:
 @router.get("/health/ready")
 async def ready(request: Request):
     try:
-        await check_database(request.app.state.engine)
+        await check_database(request.app.state.db)
     except DatabaseUnavailableError:
         return problem_response(
             request,

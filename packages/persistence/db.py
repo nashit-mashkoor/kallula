@@ -6,7 +6,7 @@ class DatabaseUnavailableError(RuntimeError):
     pass
 
 
-def create_engine(database_url: str) -> AsyncEngine:
+def create_db_engine(database_url: str) -> AsyncEngine:
     return create_async_engine(database_url, pool_pre_ping=True)
 
 

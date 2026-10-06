@@ -408,10 +408,8 @@ kallula/
 +-- apps/
 |   |
 |   +-- api/
-|   |   +-- kallula_api/
 |   |
 |   +-- coordinator/
-|   |   +-- kallula_coordinator/
 |   |
 |   +-- web/
 |       +-- src/
@@ -455,7 +453,8 @@ The important rules are:
 - runtime backend code stays in `packages/runtime`;
 - persistence code does not call Docker or Siesta;
 - frontend consumes `/api/v1`, not internal Python models;
-- all automated tests live under the root `tests/` directory, never inside `apps/`.
+- all automated tests live under the root `tests/` directory, never inside `apps/`;
+- Python import names use the bare category names (`api`, `coordinator`, `domain`, `persistence`, `engine`, `runtime`, `integrations`, `security`, `observability`); the distribution name remains `kallula`.
 
 ---
 
@@ -1925,6 +1924,7 @@ The following first-release choices are made by this plan.
 | Database (target) | PostgreSQL 16+ | Durable state, leases, events, `LISTEN/NOTIFY` |
 | Migrations | Alembic | Explicit schema history |
 | Python env | `uv` | Fast reproducible tooling |
+| Python packaging | Single `kallula` distribution via hatchling; bare top-level package names | Imports match the documented `apps/` and `packages/` names; the distribution name stays `kallula` |
 | Frontend | React + TypeScript + Vite | Mature browser application stack |
 | Data fetching | TanStack Query | Server-state management |
 | Live events | SSE / EventSource | Matches one-way durable Run updates |

@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from kallula_api import health
-from kallula_api.api import api_router
-from kallula_api.db import create_engine
-from kallula_api.logging import configure_logging
-from kallula_api.problems import register_problem_handlers
-from kallula_api.request_id import RequestIdMiddleware
-from kallula_api.settings import Settings, get_settings
+from api import health
+from api.logging import configure_logging
+from api.problems import register_problem_handlers
+from api.request_id import RequestIdMiddleware
+from api.settings import Settings, get_settings
+from api.v1 import api_router
+from persistence.db import create_db_engine
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -18,11 +18,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-        app.state.engine = create_engine(resolved_settings.database_url)
+        app.state.db = create_db_engine(resolved_settings.database_url)
         try:
             yield
         finally:
-            await app.state.engine.dispose()
+            await app.state.db.dispose()
 
     app = FastAPI(title="Kallula API", version="0.0.0", lifespan=lifespan)
     app.state.settings = resolved_settings

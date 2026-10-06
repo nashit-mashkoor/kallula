@@ -39,16 +39,18 @@ def problem_response(
     )
 
 
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, StarletteHTTPException):
+        raise exc
     detail = exc.detail if isinstance(exc.detail, str) else None
     return problem_response(request, exc.status_code, detail=detail)
 
 
 async def validation_exception_handler(
-    request: Request, exc: RequestValidationError
+    request: Request, exc: Exception
 ) -> JSONResponse:
+    if not isinstance(exc, RequestValidationError):
+        raise exc
     return problem_response(
         request,
         422,

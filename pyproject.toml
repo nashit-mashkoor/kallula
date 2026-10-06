@@ -9,9 +9,17 @@ dependencies = [
     "fastapi>=0.142.2",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.4",
     "sqlalchemy[asyncio]>=2.1.3",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apps/api", "packages/persistence"]
 
 [dependency-groups]
 dev = [
@@ -22,4 +30,19 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["apps/api"]
+
+[tool.pyright]
+extraPaths = ["apps", "packages"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "api",
+    "coordinator",
+    "domain",
+    "engine",
+    "integrations",
+    "observability",
+    "persistence",
+    "runtime",
+    "security",
+]

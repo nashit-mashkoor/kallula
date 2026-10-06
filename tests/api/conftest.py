@@ -2,8 +2,9 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from kallula_api.main import create_app
-from kallula_api.settings import Settings
+
+from api.main import create_app
+from api.settings import Settings
 
 
 def build_client(database_url: str) -> TestClient:
