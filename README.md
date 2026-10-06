@@ -220,6 +220,20 @@ Rules:
 
 All automated tests live under the root `tests/` directory.
 
+## Pinned engine
+
+Siesta is vendored under `vendor/siesta` as a Git submodule. The reviewed revision is pinned to:
+
+```text
+jairorodriguezarias/siesta @ 20b149e0734b09730dfd22803d2695776fcf84b8
+```
+
+Initialize it with:
+
+```text
+git submodule update --init --recursive
+```
+
 ## Current status
 
 The design set is complete enough to start implementation.
