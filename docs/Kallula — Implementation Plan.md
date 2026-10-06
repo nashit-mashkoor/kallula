@@ -551,6 +551,7 @@ No real Kallula product behavior is required yet.
 Backend:
 
 - FastAPI application;
+- versioned `/api/v1` router (product endpoints; health stays unversioned);
 - health endpoints;
 - SQLite connection through `DATABASE_URL`;
 - SQLAlchemy base;
@@ -1770,6 +1771,13 @@ These features can be designed later if the product proves that it needs them.
 # 28. Minimum Testing During Implementation
 
 The full Test & Compatibility Strategy is deferred, but implementation is never test-free.
+
+Testing rules are mandatory:
+
+- every new piece of functionality includes tests in the same change;
+- tests stay consistent with the code they cover;
+- a capability is complete only when the full test suite passes;
+- a failing test is never weakened or deleted only to make it pass.
 
 Each milestone must include tests for the behavior it introduces.
 

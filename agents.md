@@ -52,6 +52,17 @@ If implementation exposes a real design gap or conflict:
 - Preserve established boundaries and invariants unless the documentation is intentionally changed.
 - Add or update tests for changed behavior.
 
+## Testing
+
+Tests are mandatory, not optional.
+
+- Write tests for every new piece of functionality in the same change.
+- Keep tests consistent with the code. Update affected tests in the same change.
+- Before any piece of functionality is considered complete, run the full test suite and confirm that all tests pass.
+- Never hand off or commit a change with failing tests.
+- Do not delete or weaken a test only to make it pass. Fix the cause, or record a real decision in `docs/`.
+- All automated tests live under the root `tests/` directory.
+
 ## Documentation style
 
 When editing files in `docs/`:
@@ -71,5 +82,5 @@ Confirm that:
 - the implementation matches the relevant documentation
 - all affected documentation is updated
 - project terminology remains consistent
-- relevant tests pass
+- the full test suite passes
 - no undocumented product or architecture decision was introduced

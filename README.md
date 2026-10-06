@@ -195,6 +195,24 @@ start API + coordinator + web
 
 SQLite needs no separate database service. Set `DATABASE_URL` to PostgreSQL when a database service is required.
 
+## Testing
+
+Tests are required, not optional.
+
+```text
+uv run pytest        # run all tests
+uv run ruff check .  # lint
+```
+
+Rules:
+
+- write tests for every new piece of functionality in the same change;
+- keep tests consistent with the code; update affected tests in the same change;
+- a piece of functionality is complete only when the full test suite passes;
+- never delete or weaken a test only to make it pass.
+
+All automated tests live under the root `tests/` directory.
+
 ## Current status
 
 The design set is complete enough to start implementation.
