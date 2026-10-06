@@ -1,0 +1,13 @@
+:80 {
+	handle /api/* {
+		reverse_proxy kallula-api:8000
+	}
+
+	handle /health/* {
+		reverse_proxy kallula-api:8000
+	}
+
+	handle {
+		reverse_proxy kallula-web:80
+	}
+}

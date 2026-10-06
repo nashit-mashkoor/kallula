@@ -1,8 +1,44 @@
-# Kallula local development stack (M0).
-#
-# The stack services (kallula-api, kallula-coordinator, kallula-web, caddy)
-# are added by the Docker Compose task (M0 issue #7). See Implementation Plan
-# section 4.10. M0 and M1 use a SQLite file, so no database service is required.
-
 name: kallula
-services: {}
+
+services:
+  kallula-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/kallula.db
+      LOG_LEVEL: INFO
+    volumes:
+      - kallula-data:/data
+    ports:
+      - "8000:8000"
+
+  kallula-coordinator:
+    build:
+      context: .
+      dockerfile: apps/coordinator/Dockerfile
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/kallula.db
+      LOG_LEVEL: INFO
+    volumes:
+      - kallula-data:/data
+
+  kallula-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "5173:80"
+
+  caddy:
+    image: caddy:2
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - kallula-api
+      - kallula-web
+
+volumes:
+  kallula-data:
