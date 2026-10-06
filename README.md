@@ -167,6 +167,34 @@ Use it when you work on:
 
 Use this as the day-to-day implementation guide. When it conflicts with a normative product, architecture, security, runtime, or API rule, the higher-level document wins.
 
+## Local development
+
+The M0 development foundation is tracked in GitHub issues with the `m0` label.
+
+Target local workflow (Implementation Plan §30):
+
+```text
+git clone
+   |
+   v
+initialize submodules/dependencies
+   |
+   v
+copy .env.example
+   |
+   v
+uv sync
+pnpm install
+   |
+   v
+run migrations
+   |
+   v
+start API + coordinator + web
+```
+
+SQLite needs no separate database service. Set `DATABASE_URL` to PostgreSQL when a database service is required.
+
 ## Current status
 
 The design set is complete enough to start implementation.

@@ -1,0 +1,6 @@
+[project]
+name = "kallula"
+version = "0.0.0"
+description = "Kallula control plane."
+requires-python = ">=3.12"
+dependencies = []

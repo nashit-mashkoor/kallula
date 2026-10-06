@@ -409,15 +409,12 @@ kallula/
 |   |
 |   +-- api/
 |   |   +-- kallula_api/
-|   |   +-- tests/
 |   |
 |   +-- coordinator/
 |   |   +-- kallula_coordinator/
-|   |   +-- tests/
 |   |
 |   +-- web/
 |       +-- src/
-|       +-- tests/
 |
 +-- packages/
 |   |
@@ -442,6 +439,9 @@ kallula/
 +-- scripts/
 |
 +-- tests/
+    +-- api/
+    +-- coordinator/
+    +-- web/
     +-- integration/
     +-- fixtures/
 ```
@@ -454,7 +454,8 @@ The important rules are:
 - Siesta-native code stays in `packages/engine/siesta`;
 - runtime backend code stays in `packages/runtime`;
 - persistence code does not call Docker or Siesta;
-- frontend consumes `/api/v1`, not internal Python models.
+- frontend consumes `/api/v1`, not internal Python models;
+- all automated tests live under the root `tests/` directory, never inside `apps/`.
 
 ---
 
