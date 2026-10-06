@@ -195,12 +195,23 @@ start API + coordinator + web
 
 SQLite needs no separate database service. Set `DATABASE_URL` to PostgreSQL when a database service is required.
 
-Backend commands:
+Common commands:
 
 ```text
-uv run alembic upgrade head                                  # apply migrations
-uv run uvicorn api.main:app --reload --port 8000             # start the API
+make migrate        # apply database migrations
+make test           # run backend tests
+make lint           # backend lint and format checks
+make api            # start the API
+make coordinator    # start the coordinator
+make web-install    # install frontend dependencies
+make web            # start the frontend dev server
+make web-test       # run frontend tests
+make web-typecheck  # type-check the frontend
+make web-build      # build the frontend
+make dev            # start the full stack with Docker Compose
 ```
+
+Run `make help` to see all commands. Docker is required only for `make dev` and the `compose-*` targets.
 
 ## Testing
 
