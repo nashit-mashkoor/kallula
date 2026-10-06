@@ -247,15 +247,13 @@ git submodule update --init --recursive
 
 ## Current status
 
-The design set is complete enough to start implementation.
-
-Start with:
+M0 (Repository and Development Foundation) is complete. M1 (Project and Run skeleton) is next.
 
 ```text
-M0  Repository and development foundation
+M0  Repository and development foundation   [complete]
  |
  v
-M1  Project and Run skeleton
+M1  Project and Run skeleton                [next]
  |
  v
 M2  Durable Events and live updates
