@@ -19,7 +19,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["apps/api", "packages/persistence"]
+packages = [
+    "apps/api",
+    "apps/coordinator",
+    "packages/observability",
+    "packages/persistence",
+]
 
 [dependency-groups]
 dev = [

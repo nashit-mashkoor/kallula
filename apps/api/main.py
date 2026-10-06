@@ -4,11 +4,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from api import health
-from api.logging import configure_logging
 from api.problems import register_problem_handlers
 from api.request_id import RequestIdMiddleware
 from api.settings import Settings, get_settings
 from api.v1 import api_router
+from observability.logging import configure_logging
 from persistence.db import create_db_engine
 
 

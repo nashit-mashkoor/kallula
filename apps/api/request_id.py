@@ -1,5 +1,4 @@
 import logging
-from contextvars import ContextVar, Token
 from time import perf_counter
 from uuid import uuid4
 
@@ -7,21 +6,9 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
-request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
+from observability.context import reset_request_id, set_request_id
 
 logger = logging.getLogger("api.request")
-
-
-def get_request_id() -> str | None:
-    return request_id_var.get()
-
-
-def set_request_id(request_id: str) -> Token[str | None]:
-    return request_id_var.set(request_id)
-
-
-def reset_request_id(token: Token[str | None]) -> None:
-    request_id_var.reset(token)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):

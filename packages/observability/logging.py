@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import UTC, datetime
 
-from api.request_id import get_request_id
+from observability.context import get_request_id
 
 _STANDARD_ATTRS = frozenset(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {
     "message",
