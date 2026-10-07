@@ -57,3 +57,27 @@ jobs:
         run: |
           DATABASE_URL=sqlite+aiosqlite:///./ci-migration.db uv run alembic upgrade head
           DATABASE_URL=sqlite+aiosqlite:///./ci-migration.db uv run alembic downgrade base
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build stack
+        run: docker compose build
+      - name: Start stack
+        run: docker compose up -d
+      - name: Wait for API readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/health/ready; then exit 0; fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Check API through Caddy and the web app
+        run: |
+          curl -sf http://localhost:8080/health/live
+          curl -sf http://localhost:8080/ | grep -qi "<title>Kallula</title>"
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v
