@@ -440,6 +440,8 @@ kallula/
     +-- api/
     +-- coordinator/
     +-- web/
+    +-- observability/
+    +-- persistence/
     +-- integration/
     +-- fixtures/
 ```
