@@ -17,6 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from domain.states import (
     AttemptState,
     CommandState,
+    EventSeverity,
+    EventSource,
     OriginType,
     Recoverability,
     RunControlState,
@@ -306,3 +308,54 @@ class IdempotencyRecord(Base):
         DateTime(timezone=True), default=utcnow
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    sequence: Mapped[int] = mapped_column(Integer)
+    attempt_id: Mapped[str | None] = mapped_column(ForeignKey("execution_attempts.id"))
+    source: Mapped[EventSource] = mapped_column(
+        Enum(
+            EventSource,
+            name="event_source",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        )
+    )
+    source_event_sequence: Mapped[int | None] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(64))
+    category: Mapped[str] = mapped_column(String(64))
+    severity: Mapped[EventSeverity] = mapped_column(
+        Enum(
+            EventSeverity,
+            name="event_severity",
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+        ),
+        default=EventSeverity.INFO,
+    )
+    stage_category: Mapped[str | None] = mapped_column(String(64))
+    stage_native_id: Mapped[str | None] = mapped_column(String(128))
+    stage_label: Mapped[str | None] = mapped_column(String(128))
+    stage_order: Mapped[int | None] = mapped_column(Integer)
+    work_item_id: Mapped[str | None] = mapped_column(String(32))
+    summary: Mapped[str] = mapped_column(Text)
+    payload_version: Mapped[int] = mapped_column(Integer, default=1)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    artifact_ids_json: Mapped[list] = mapped_column(JSON, default=list)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "sequence"),
+        UniqueConstraint("attempt_id", "source_event_sequence"),
+    )
