@@ -1,0 +1,36 @@
+import asyncio
+
+from persistence.db import create_db_engine, create_session_factory
+from persistence.models import Command, Principal
+
+
+async def _seed_command(database_url: str) -> str:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            principal = Principal(
+                id="dev-principal",
+                auth_provider="development",
+                auth_subject="dev-principal",
+                display_name="Development User",
+            )
+            session.add(principal)
+            command = Command(
+                actor_principal_id=principal.id,
+                command_type="START_RUN",
+                target_type="RUN",
+                target_id="run-1",
+                request_json={},
+                request_hash="hash",
+                idempotency_key="key",
+            )
+            session.add(command)
+            await session.commit()
+            return command.id
+    finally:
+        await engine.dispose()
+
+
+def seed_command(database_url: str) -> str:
+    return asyncio.run(_seed_command(database_url))

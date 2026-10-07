@@ -15,6 +15,7 @@ class Problem(BaseModel):
     detail: str | None = None
     instance: str | None = None
     request_id: str | None = None
+    code: str | None = None
 
 
 def problem_response(
@@ -23,6 +24,7 @@ def problem_response(
     title: str | None = None,
     detail: str | None = None,
     type_: str = "about:blank",
+    code: str | None = None,
 ) -> JSONResponse:
     problem = Problem(
         type=type_,
@@ -31,6 +33,7 @@ def problem_response(
         detail=detail,
         instance=request.url.path,
         request_id=getattr(request.state, "request_id", None),
+        code=code,
     )
     return JSONResponse(
         status_code=status_code,

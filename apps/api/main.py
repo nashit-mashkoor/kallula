@@ -9,7 +9,7 @@ from api.request_id import RequestIdMiddleware
 from api.settings import Settings, get_settings
 from api.v1 import api_router
 from observability.logging import configure_logging
-from persistence.db import create_db_engine
+from persistence.db import create_db_engine, create_session_factory
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -18,11 +18,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-        app.state.db = create_db_engine(resolved_settings.database_url)
+        engine = create_db_engine(resolved_settings.database_url)
+        app.state.db = engine
+        app.state.session_factory = create_session_factory(engine)
         try:
             yield
         finally:
-            await app.state.db.dispose()
+            await engine.dispose()
 
     app = FastAPI(title="Kallula API", version="0.0.0", lifespan=lifespan)
     app.state.settings = resolved_settings
