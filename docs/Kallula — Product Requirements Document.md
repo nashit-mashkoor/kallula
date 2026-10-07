@@ -4,7 +4,7 @@
 **Product name:** Kallula
 **Engine:** Siesta (upstream project: `jairorodriguezarias/siesta`)
 **Repository baseline reviewed:** `main`, tree/commit snapshot `20b149e0734b09730dfd22803d2695776fcf84b8`
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Primary product specification for product design, architecture, UX design, and implementation planning
 **Audience:** Product, frontend, backend/control-plane, engine-integration, security, infrastructure, and QA engineers
 **Normative supporting architecture:** [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
@@ -2048,7 +2048,7 @@ Recommended order:
 
 ## 32.1 System Architecture & State Model
 
-**Status: CREATED — normative pre-implementation architecture.**
+**Status: CREATED — normative architecture; implementation started.**
 
 Document: [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
 

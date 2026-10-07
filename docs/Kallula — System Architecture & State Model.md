@@ -1,6 +1,6 @@
 # Kallula — System Architecture & State Model
 
-**Document status:** Normative architecture specification — pre-implementation
+**Document status:** Normative architecture specification — implementation started
 **Product:** Kallula
 **Primary product specification:** [`Kallula — Product Requirements Document.md`](./Kallula%20%E2%80%94%20Product%20Requirements%20Document.md)
 **Normative Siesta integration specification:** [`Kallula — Siesta Engine Adaptation Specification.md`](./Kallula%20%E2%80%94%20Siesta%20Engine%20Adaptation%20Specification.md)
@@ -11,7 +11,7 @@
 **Initial execution engine:** Siesta (`jairorodriguezarias/siesta`)
 **Siesta repository baseline reviewed:** `main`, tree/commit snapshot `20b149e0734b09730dfd22803d2695776fcf84b8`
 **Implementation plan:** [`Kallula — Implementation Plan.md`](./Kallula%20%E2%80%94%20Implementation%20Plan.md)  
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Define Kallula's system boundaries, ownership model, state machines, persistence semantics, execution lifecycle, concurrency rules, recovery behavior, and engine-isolation architecture before API or infrastructure implementation decisions are made.
 **Audience:** Backend/control-plane, engine-integration, frontend, infrastructure, security, QA, and future maintainers.
 

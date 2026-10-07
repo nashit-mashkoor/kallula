@@ -1,6 +1,6 @@
 # Kallula — UX & Interaction Specification
 
-**Document status:** Normative UX and interaction specification — pre-implementation
+**Document status:** Normative UX and interaction specification — implementation started
 **Product:** Kallula
 **Primary product specification:** [`Kallula — Product Requirements Document.md`](./Kallula%20%E2%80%94%20Product%20Requirements%20Document.md)
 **Parent architecture:** [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
@@ -9,7 +9,7 @@
 **Execution environment & Preview design:** [`Kallula — Execution Environment & Preview Design.md`](./Kallula%20%E2%80%94%20Execution%20Environment%20%26%20Preview%20Design.md)
 **API & data contract specification:** [`Kallula — API & Data Contract Specification.md`](./Kallula%20%E2%80%94%20API%20%26%20Data%20Contract%20Specification.md)
 **Implementation plan:** [`Kallula — Implementation Plan.md`](./Kallula%20%E2%80%94%20Implementation%20Plan.md)  
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Define the complete browser experience for Kallula: information architecture, screens, interaction semantics, attention states, capability-driven controls, responsive behavior, failure/recovery presentation, and user-visible truth rules.
 **Audience:** Product, UX/UI, frontend, backend/control-plane, engine-integration, QA, accessibility, security, and infrastructure engineers.
 

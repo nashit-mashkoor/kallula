@@ -1,6 +1,6 @@
 # Kallula — Security & Credentials Design
 
-**Document status:** Normative security and credentials design — pre-implementation
+**Document status:** Normative security and credentials design — implementation started
 **Product:** Kallula
 **Primary product specification:** [`Kallula — Product Requirements Document.md`](./Kallula%20%E2%80%94%20Product%20Requirements%20Document.md)
 **Parent architecture:** [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
@@ -9,7 +9,7 @@
 **Execution environment & Preview design:** [`Kallula — Execution Environment & Preview Design.md`](./Kallula%20%E2%80%94%20Execution%20Environment%20%26%20Preview%20Design.md)
 **API & data contract specification:** [`Kallula — API & Data Contract Specification.md`](./Kallula%20%E2%80%94%20API%20%26%20Data%20Contract%20Specification.md)
 **Implementation plan:** [`Kallula — Implementation Plan.md`](./Kallula%20%E2%80%94%20Implementation%20Plan.md)  
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Define Kallula's security model, trust boundaries, authentication/session requirements, credential domains, encryption and key hierarchy, secret lifecycle, worker/provider/GitHub exposure rules, preview isolation requirements, redaction, auditability, compromise response, and security acceptance criteria before execution-environment and API implementation choices are frozen.
 **Audience:** Security, backend/control-plane, runner, engine-integration, infrastructure, frontend, GitHub/integration, QA, and future operators.
 
@@ -1218,7 +1218,7 @@ Kallula should not request write permission for an installation that only import
 
 Permission changes must be explicit and auditable.
 
-Exact current GitHub permission names/API details should be validated against GitHub documentation during implementation rather than hard-coded in this pre-implementation design.
+Exact current GitHub permission names/API details should be validated against GitHub documentation during implementation rather than hard-coded in this design.
 
 ---
 

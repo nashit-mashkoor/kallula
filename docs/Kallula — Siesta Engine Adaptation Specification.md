@@ -1,6 +1,6 @@
 # Kallula — Siesta Engine Adaptation Specification
 
-**Document status:** Normative engine-integration specification — pre-implementation
+**Document status:** Normative engine-integration specification — implementation started
 **Product:** Kallula
 **Primary product specification:** [`Kallula — Product Requirements Document.md`](./Kallula%20%E2%80%94%20Product%20Requirements%20Document.md)
 **Parent architecture:** [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
@@ -11,7 +11,7 @@
 **Initial execution engine:** Siesta (`jairorodriguezarias/siesta`)
 **Siesta repository baseline reviewed:** `main`, tree/commit snapshot `20b149e0734b09730dfd22803d2695776fcf84b8`
 **Implementation plan:** [`Kallula — Implementation Plan.md`](./Kallula%20%E2%80%94%20Implementation%20Plan.md)  
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Define exactly how Kallula integrates with, adapts, constrains, observes, configures, suspends, resumes, and upgrades the current Siesta engine while preventing Siesta-native implementation details from leaking throughout the rest of Kallula.
 **Audience:** Engine-integration, backend/control-plane, runner, security, QA, infrastructure, and future Siesta-upgrade maintainers.
 

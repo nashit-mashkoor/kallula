@@ -1,6 +1,6 @@
 # Kallula — Execution Environment & Preview Design
 
-**Document status:** Normative execution-runtime and Preview design — pre-implementation
+**Document status:** Normative execution-runtime and Preview design — implementation started
 **Product:** Kallula
 **Primary product specification:** [`Kallula — Product Requirements Document.md`](./Kallula%20%E2%80%94%20Product%20Requirements%20Document.md)
 **Parent architecture:** [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
@@ -9,7 +9,7 @@
 **Security & credentials design:** [`Kallula — Security & Credentials Design.md`](./Kallula%20%E2%80%94%20Security%20%26%20Credentials%20Design.md)
 **API & data contract specification:** [`Kallula — API & Data Contract Specification.md`](./Kallula%20%E2%80%94%20API%20%26%20Data%20Contract%20Specification.md)
 **Implementation plan:** [`Kallula — Implementation Plan.md`](./Kallula%20%E2%80%94%20Implementation%20Plan.md)  
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Define the physical execution model for Kallula: worker isolation, durable workspaces, Run Engine Runtime persistence, environment resolution, process/resource/network controls, dependency execution, application-service lifecycle, runtime secret injection, stable Preview source snapshots, Preview routing/access control, health/logging, cleanup, and crash reconciliation.
 **Audience:** Backend/control-plane, runtime/infrastructure, security, engine-integration, Preview, frontend, QA, and operations engineers.
 

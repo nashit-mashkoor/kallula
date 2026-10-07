@@ -224,8 +224,10 @@ docker compose run --rm kallula-api alembic upgrade head
 Tests are required, not optional.
 
 ```text
-uv run pytest        # run all tests
-uv run ruff check .  # lint
+make test           # run backend tests
+make lint           # backend lint and format checks
+make web-test       # run frontend tests
+make web-typecheck  # type-check the frontend
 ```
 
 Rules:
@@ -273,22 +275,23 @@ The **Test & Compatibility Strategy** remains deferred until the implementation 
 
 Implementation tasks are tracked as GitHub issues in [`nashit-mashkoor/kallula`](https://github.com/nashit-mashkoor/kallula/issues).
 
-Each milestone uses one issue label. The current milestone is M0:
+Each milestone uses one issue label. M0 is complete; the current milestone is M1:
 
 ```text
-label: m0   Repository and Development Foundation
+label: m0   Repository and Development Foundation   [complete]
+label: m1   Project and Run Skeleton                [current]
 ```
 
-List M0 work:
+List M1 work:
 
 ```text
-gh-axi issue list --label m0
+gh-axi issue list --label m1
 ```
 
 Or open:
 
 ```text
-https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am0
+https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am1
 ```
 
 The issues are ordered by implementation dependency. Create the next milestone label when the current milestone passes its Definition of Done.

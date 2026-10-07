@@ -1,6 +1,6 @@
 # Kallula — API & Data Contract Specification
 
-**Document status:** Normative API and data-contract specification — pre-implementation
+**Document status:** Normative API and data-contract specification — implementation started
 **Product:** Kallula
 **Primary product specification:** [`Kallula — Product Requirements Document.md`](./Kallula%20%E2%80%94%20Product%20Requirements%20Document.md)
 **Parent architecture:** [`Kallula — System Architecture & State Model.md`](./Kallula%20%E2%80%94%20System%20Architecture%20%26%20State%20Model.md)
@@ -9,7 +9,7 @@
 **Security & credentials design:** [`Kallula — Security & Credentials Design.md`](./Kallula%20%E2%80%94%20Security%20%26%20Credentials%20Design.md)
 **Execution environment & Preview design:** [`Kallula — Execution Environment & Preview Design.md`](./Kallula%20%E2%80%94%20Execution%20Environment%20%26%20Preview%20Design.md)
 **Implementation plan:** [`Kallula — Implementation Plan.md`](./Kallula%20%E2%80%94%20Implementation%20Plan.md)  
-**Implementation status:** Not started
+**Implementation status:** Tracked by the [Implementation Plan](./Kallula%20%E2%80%94%20Implementation%20Plan.md)
 **Purpose:** Freeze Kallula's stable application-facing resources, logical persistence schema, field contracts, state and version identities, browser/API operations, durable command semantics, concurrency/idempotency rules, normalized events, replay/live-update behavior, security-sensitive omissions, and error contracts without leaking current Siesta-native implementation details into product-wide interfaces.
 **Audience:** Frontend, backend/control-plane, runtime, engine integration, security, QA, data/migration, and future client developers.
 
