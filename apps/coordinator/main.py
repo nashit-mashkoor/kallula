@@ -6,8 +6,13 @@ import signal
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from coordinator.loop import (
+    POLL_INTERVAL_SECONDS,
+    default_holder_id,
+    process_queued_runs,
+)
 from observability.logging import configure_logging
-from persistence.db import check_database, create_db_engine
+from persistence.db import check_database, create_db_engine, create_session_factory
 
 logger = logging.getLogger("coordinator")
 
@@ -24,15 +29,13 @@ async def start(database_url: str) -> AsyncEngine:
     return engine
 
 
-async def _wait_for_stop() -> None:
-    stop = asyncio.Event()
+def _install_signal_handlers(stop: asyncio.Event) -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(sig, stop.set)
         except NotImplementedError:
             pass
-    await stop.wait()
 
 
 async def run() -> None:
@@ -41,9 +44,25 @@ async def run() -> None:
     database_url = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
     engine = await start(database_url)
+    factory = create_session_factory(engine)
+    holder_id = default_holder_id()
+    stop = asyncio.Event()
+    _install_signal_handlers(stop)
     logger.info("coordinator ready")
+
     try:
-        await _wait_for_stop()
+        while not stop.is_set():
+            try:
+                async with factory() as session:
+                    processed = await process_queued_runs(session, holder_id=holder_id)
+                    if processed:
+                        logger.info("processed runs", extra={"count": processed})
+            except Exception:
+                logger.exception("coordinator iteration failed")
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=POLL_INTERVAL_SECONDS)
+            except TimeoutError:
+                pass
     finally:
         await engine.dispose()
         logger.info("coordinator stopped")
