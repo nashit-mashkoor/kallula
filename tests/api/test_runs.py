@@ -1,3 +1,6 @@
+from helpers import fetch_events
+
+
 def create_project(client, key="project-key"):
     response = client.post(
         "/api/v1/projects",
@@ -91,3 +94,11 @@ def test_unknown_run_returns_problem(client):
 
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("application/problem+json")
+
+
+def test_create_run_emits_queued_event(client, database_url):
+    project = create_project(client)
+    run = create_run(client, project["id"]).json()
+
+    assert run["last_event_sequence"] == 1
+    assert fetch_events(database_url, run["id"]) == [("RUN_QUEUED", 1, "CONTROL_PLANE")]

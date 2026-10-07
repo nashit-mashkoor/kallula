@@ -13,6 +13,8 @@ from api.dependencies import get_principal_id, get_session
 from api.idempotency import IdempotencyConflictError
 from api.problems import problem_response
 from api.projects import etag, owned_project
+from domain.states import EventSource
+from persistence.events import append_event
 from persistence.models import Project, Run, RunConfigSnapshot
 
 router = APIRouter(tags=["runs"])
@@ -209,6 +211,15 @@ async def create_run(
     )
     session.add(run)
     await session.flush()
+
+    await append_event(
+        session,
+        run,
+        event_type="RUN_QUEUED",
+        category="RUN",
+        summary="Run queued.",
+        source=EventSource.CONTROL_PLANE,
+    )
 
     snapshot = RunConfigSnapshot(
         run_id=run.id,

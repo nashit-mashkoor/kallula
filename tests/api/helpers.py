@@ -1,12 +1,13 @@
 import asyncio
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api.main import create_app
 from api.settings import Settings
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
-from persistence.models import Command, Principal
+from persistence.models import Command, Event, Principal
 
 
 async def _prepare_database(database_url: str) -> None:
@@ -59,3 +60,31 @@ async def _seed_command(database_url: str) -> str:
 
 def seed_command(database_url: str) -> str:
     return asyncio.run(_seed_command(database_url))
+
+
+async def _fetch_events(database_url: str, run_id: str) -> list[tuple[str, int, str]]:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            events = (
+                (
+                    await session.execute(
+                        select(Event)
+                        .where(Event.run_id == run_id)
+                        .order_by(Event.sequence)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return [
+                (event.event_type, event.sequence, event.source.value)
+                for event in events
+            ]
+    finally:
+        await engine.dispose()
+
+
+def fetch_events(database_url: str, run_id: str) -> list[tuple[str, int, str]]:
+    return asyncio.run(_fetch_events(database_url, run_id))

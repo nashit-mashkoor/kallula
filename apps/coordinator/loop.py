@@ -6,12 +6,13 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.states import AttemptState, Recoverability, RunControlState
+from domain.states import AttemptState, EventSeverity, Recoverability, RunControlState
 from domain.transitions import next_attempt_state, next_run_state
 from engine.base import Engine, EngineOutcome
 from engine.fake import FakeEngine
 from persistence import leases
 from persistence.attempts import create_attempt
+from persistence.events import append_event
 from persistence.models import Run
 
 logger = logging.getLogger("coordinator")
@@ -41,15 +42,46 @@ async def drive_run(
     )
     try:
         run.control_state = next_run_state(run.control_state, RunControlState.STARTING)
+        await append_event(
+            session,
+            run,
+            event_type="RUN_STARTING",
+            category="RUN",
+            summary="Run is starting.",
+        )
         attempt = await create_attempt(session, run)
         run.active_attempt_id = attempt.id
         run.started_at = run.started_at or moment
         run.control_state = next_run_state(run.control_state, RunControlState.RUNNING)
         run.version += 1
         run.updated_at = moment
+        await append_event(
+            session,
+            run,
+            event_type="ATTEMPT_ALLOCATED",
+            category="ATTEMPT",
+            summary=f"Attempt {attempt.ordinal} allocated.",
+            attempt_id=attempt.id,
+        )
         await session.flush()
 
         attempt.state = next_attempt_state(attempt.state, AttemptState.STARTING)
+        await append_event(
+            session,
+            run,
+            event_type="ATTEMPT_STARTED",
+            category="ATTEMPT",
+            summary="Attempt started.",
+            attempt_id=attempt.id,
+        )
+        await append_event(
+            session,
+            run,
+            event_type="RUN_STARTED",
+            category="RUN",
+            summary="Run started.",
+            attempt_id=attempt.id,
+        )
         result = engine.run()
         attempt.state = next_attempt_state(attempt.state, AttemptState.EXITED)
         attempt.ended_at = moment
@@ -61,6 +93,21 @@ async def drive_run(
                 run.control_state, RunControlState.COMPLETED
             )
             run.completed_at = moment
+            await append_event(
+                session,
+                run,
+                event_type="ATTEMPT_EXITED",
+                category="ATTEMPT",
+                summary="Attempt exited with an engine outcome.",
+                attempt_id=attempt.id,
+            )
+            await append_event(
+                session,
+                run,
+                event_type="RUN_COMPLETED",
+                category="RUN",
+                summary="Run completed.",
+            )
         else:
             run.control_state = next_run_state(
                 run.control_state, RunControlState.FAILED
@@ -69,6 +116,23 @@ async def drive_run(
             run.failure_code = "ENGINE_FAILED"
             run.failure_summary = result.failure_summary
             run.recoverability = Recoverability.UNKNOWN
+            await append_event(
+                session,
+                run,
+                event_type="ATTEMPT_EXITED",
+                category="ATTEMPT",
+                summary="Attempt exited with an engine failure.",
+                attempt_id=attempt.id,
+            )
+            await append_event(
+                session,
+                run,
+                event_type="RUN_FAILED",
+                category="RUN",
+                severity=EventSeverity.ERROR,
+                summary=result.failure_summary or "Run failed.",
+                payload={"code": "ENGINE_FAILED"},
+            )
         run.version += 1
         run.updated_at = moment
         await session.flush()
