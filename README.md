@@ -255,16 +255,16 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation) is complete. M1 (Project and Run skeleton) is in progress.
+M0 (Repository and Development Foundation) and M1 (Project and Run skeleton) are complete. M2 (Durable Events and live updates) is next.
 
 ```text
 M0  Repository and development foundation   [complete]
  |
  v
-M1  Project and Run skeleton                [in progress]
+M1  Project and Run skeleton                [complete]
  |
  v
-M2  Durable Events and live updates
+M2  Durable Events and live updates         [next]
 ```
 
 Then move to the real Siesta integration in M3–M5.
@@ -275,11 +275,11 @@ The **Test & Compatibility Strategy** remains deferred until the implementation 
 
 Implementation tasks are tracked as GitHub issues in [`nashit-mashkoor/kallula`](https://github.com/nashit-mashkoor/kallula/issues).
 
-Each milestone uses one issue label. M0 is complete; the current milestone is M1:
+Each milestone uses one issue label. M0 and M1 are complete:
 
 ```text
 label: m0   Repository and Development Foundation   [complete]
-label: m1   Project and Run Skeleton                [current]
+label: m1   Project and Run Skeleton                [complete]
 ```
 
 List M1 work:
