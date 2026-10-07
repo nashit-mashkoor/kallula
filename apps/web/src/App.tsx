@@ -1,31 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
 import { Route, Routes } from "react-router";
 
-import { apiGet } from "./api/client";
-
-type Health = { status: string };
-
-function Home() {
-  const health = useQuery({
-    queryKey: ["health"],
-    queryFn: () => apiGet<Health>("/health/ready"),
-  });
-
-  return (
-    <main>
-      <h1>Kallula</h1>
-      <p>
-        API status:{" "}
-        {health.isLoading ? "checking..." : health.isError ? "unreachable" : health.data?.status}
-      </p>
-    </main>
-  );
-}
+import { Dashboard } from "./pages/Dashboard";
+import { NewProject } from "./pages/NewProject";
+import { ProjectPage } from "./pages/ProjectPage";
+import { RunPage } from "./pages/RunPage";
 
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/projects/new" element={<NewProject />} />
+      <Route path="/projects/:projectId" element={<ProjectPage />} />
+      <Route path="/projects/:projectId/runs/:runId" element={<RunPage />} />
     </Routes>
   );
 }
