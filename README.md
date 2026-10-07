@@ -255,7 +255,7 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation) and M1 (Project and Run skeleton) are complete. M2 (Durable Events and live updates) is next.
+M0 (Repository and Development Foundation), M1 (Project and Run skeleton), and M2 (Durable Events and live updates) are complete. The Gate A review is next.
 
 ```text
 M0  Repository and development foundation   [complete]
@@ -264,7 +264,7 @@ M0  Repository and development foundation   [complete]
 M1  Project and Run skeleton                [complete]
  |
  v
-M2  Durable Events and live updates         [next]
+M2  Durable Events and live updates         [complete]
 ```
 
 Then move to the real Siesta integration in M3–M5.
@@ -275,23 +275,24 @@ The **Test & Compatibility Strategy** remains deferred until the implementation 
 
 Implementation tasks are tracked as GitHub issues in [`nashit-mashkoor/kallula`](https://github.com/nashit-mashkoor/kallula/issues).
 
-Each milestone uses one issue label. M0 and M1 are complete:
+Each milestone uses one issue label. M0, M1, and M2 are complete:
 
 ```text
 label: m0   Repository and Development Foundation   [complete]
 label: m1   Project and Run Skeleton                [complete]
+label: m2   Durable Events and Live Updates         [complete]
 ```
 
-List M1 work:
+List milestone work:
 
 ```text
-gh-axi issue list --label m1
+gh-axi issue list --label m2
 ```
 
 Or open:
 
 ```text
-https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am1
+https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am2
 ```
 
 The issues are ordered by implementation dependency. Create the next milestone label when the current milestone passes its Definition of Done.

@@ -9,7 +9,7 @@
 **Security design:** [`Kallula — Security & Credentials Design.md`](./Kallula%20%E2%80%94%20Security%20%26%20Credentials%20Design.md)  
 **Execution and Preview design:** [`Kallula — Execution Environment & Preview Design.md`](./Kallula%20%E2%80%94%20Execution%20Environment%20%26%20Preview%20Design.md)  
 **API and data contract:** [`Kallula — API & Data Contract Specification.md`](./Kallula%20%E2%80%94%20API%20%26%20Data%20Contract%20Specification.md)  
-**Implementation status:** M1 complete; M2 next  
+**Implementation status:** M2 complete; Gate A review next  
 **Purpose:** Turn the Kallula design into a sequence of small, working, vertical product slices. Each milestone must produce usable software and preserve the existing architecture.
 
 > **Implementation rule:** Do not build horizontal infrastructure because it might be useful later. Build the smallest complete path that proves the next Kallula capability.
