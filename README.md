@@ -213,6 +213,12 @@ make dev            # start the full stack with Docker Compose
 
 Run `make help` to see all commands. Docker is required only for `make dev` and the `compose-*` targets.
 
+With the Compose stack running, apply migrations inside the API container:
+
+```text
+docker compose run --rm kallula-api alembic upgrade head
+```
+
 ## Testing
 
 Tests are required, not optional.
