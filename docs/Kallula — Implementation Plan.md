@@ -824,6 +824,23 @@ Before M3, confirm:
 
 If any of these fail, fix them before integrating Siesta.
 
+## 13.1 Gate A outcome
+
+**Result:** PASSED — 2026-10-07. Decision: CONTINUE to M3.
+
+Evidence:
+
+| Item | Result |
+|---|---|
+| Run state machine stable | domain transition map with tests; invalid transitions rejected; COMPLETED terminal |
+| Event sequence stable | `unique(run_id, sequence)`; ordered journal #1..#7 verified |
+| Commands idempotent | idempotency keys with replay and conflict tests |
+| SSE reconnect works | browser disconnect/reconnect with `Last-Event-ID` replayed the missed events |
+| API restart does not corrupt active Runs | restart during a QUEUED Run preserved Project/Run state and events |
+| Frontend does not depend on fake-engine internals | UI consumes normalized API and events only |
+
+Full suite at the gate: backend 80 tests, frontend 6 tests, ruff and mypy clean, migrations `0001`-`0003` up/down from zero, CI green.
+
 ---
 
 # 14. Milestone M3 — Real Siesta Autonomous Execution

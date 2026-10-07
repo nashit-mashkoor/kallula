@@ -255,7 +255,7 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation), M1 (Project and Run skeleton), and M2 (Durable Events and live updates) are complete. The Gate A review is next.
+M0 (Repository and Development Foundation), M1 (Project and Run skeleton), and M2 (Durable Events and live updates) are complete, and the Gate A review passed. M3 (real Siesta autonomous execution) is next.
 
 ```text
 M0  Repository and development foundation   [complete]
@@ -265,9 +265,15 @@ M1  Project and Run skeleton                [complete]
  |
  v
 M2  Durable Events and live updates         [complete]
+ |
+ v
+Gate A review                               [passed]
+ |
+ v
+M3  Real Siesta autonomous execution        [next]
 ```
 
-Then move to the real Siesta integration in M3–M5.
+M3–M5 integrate the real Siesta engine.
 
 The **Test & Compatibility Strategy** remains deferred until the implementation is concrete enough to define executable release gates. It becomes required during M12 before release.
 
