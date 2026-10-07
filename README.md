@@ -255,13 +255,13 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation) is complete. M1 (Project and Run skeleton) is next.
+M0 (Repository and Development Foundation) is complete. M1 (Project and Run skeleton) is in progress.
 
 ```text
 M0  Repository and development foundation   [complete]
  |
  v
-M1  Project and Run skeleton                [next]
+M1  Project and Run skeleton                [in progress]
  |
  v
 M2  Durable Events and live updates
