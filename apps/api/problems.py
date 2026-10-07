@@ -25,6 +25,7 @@ def problem_response(
     detail: str | None = None,
     type_: str = "about:blank",
     code: str | None = None,
+    extra: dict | None = None,
 ) -> JSONResponse:
     problem = Problem(
         type=type_,
@@ -35,9 +36,12 @@ def problem_response(
         request_id=getattr(request.state, "request_id", None),
         code=code,
     )
+    content = problem.model_dump(exclude_none=True)
+    if extra:
+        content.update(extra)
     return JSONResponse(
         status_code=status_code,
-        content=problem.model_dump(exclude_none=True),
+        content=content,
         media_type="application/problem+json",
     )
 

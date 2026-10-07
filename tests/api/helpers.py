@@ -1,13 +1,14 @@
 import asyncio
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from api.main import create_app
 from api.settings import Settings
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
-from persistence.models import Command, Event, Principal
+from persistence.events import append_event
+from persistence.models import Command, Event, Principal, Project, Run
 
 
 async def _prepare_database(database_url: str) -> None:
@@ -88,3 +89,78 @@ async def _fetch_events(database_url: str, run_id: str) -> list[tuple[str, int, 
 
 def fetch_events(database_url: str, run_id: str) -> list[tuple[str, int, str]]:
     return asyncio.run(_fetch_events(database_url, run_id))
+
+
+async def _seed_run(database_url: str) -> str:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            principal = Principal(
+                id="dev-principal",
+                auth_provider="development",
+                auth_subject="dev-principal",
+                display_name="Development User",
+            )
+            session.add(principal)
+            await session.flush()
+            project = Project(owner_id=principal.id, display_name="Project")
+            session.add(project)
+            await session.flush()
+            run = Run(project_id=project.id, ordinal=1, objective="Build it")
+            session.add(run)
+            await session.flush()
+            await session.commit()
+            return run.id
+    finally:
+        await engine.dispose()
+
+
+def seed_run(database_url: str) -> str:
+    return asyncio.run(_seed_run(database_url))
+
+
+async def _append_run_event(database_url: str, run_id: str, summary: str) -> int:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            run = (
+                await session.execute(select(Run).where(Run.id == run_id))
+            ).scalar_one()
+            event = await append_event(
+                session,
+                run,
+                event_type="RUN_STARTING",
+                category="RUN",
+                summary=summary,
+            )
+            await session.commit()
+            return event.sequence
+    finally:
+        await engine.dispose()
+
+
+def append_run_event(database_url: str, run_id: str, summary: str) -> int:
+    return asyncio.run(_append_run_event(database_url, run_id, summary))
+
+
+async def _trim_events(
+    database_url: str, run_id: str, keep_after_sequence: int
+) -> None:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            await session.execute(
+                delete(Event).where(
+                    Event.run_id == run_id, Event.sequence <= keep_after_sequence
+                )
+            )
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+def trim_events(database_url: str, run_id: str, keep_after_sequence: int) -> None:
+    asyncio.run(_trim_events(database_url, run_id, keep_after_sequence))
