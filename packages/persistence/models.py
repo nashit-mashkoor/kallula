@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from enum import StrEnum
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -15,6 +14,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from domain.states import (
+    AttemptState,
+    CommandState,
+    OriginType,
+    Recoverability,
+    RunControlState,
+    WorkspaceStatus,
+)
 from persistence.base import Base
 
 
@@ -24,52 +31,6 @@ def new_id() -> str:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-class WorkspaceStatus(StrEnum):
-    INITIALIZING = "INITIALIZING"
-    READY = "READY"
-    ERROR = "ERROR"
-
-
-class RunControlState(StrEnum):
-    QUEUED = "QUEUED"
-    STARTING = "STARTING"
-    RUNNING = "RUNNING"
-    WAITING_FOR_HUMAN = "WAITING_FOR_HUMAN"
-    STOP_REQUESTED = "STOP_REQUESTED"
-    STOPPED = "STOPPED"
-    FAILED = "FAILED"
-    COMPLETED = "COMPLETED"
-
-
-class Recoverability(StrEnum):
-    RESUMABLE = "RESUMABLE"
-    RETRYABLE_AS_NEW_RUN = "RETRYABLE_AS_NEW_RUN"
-    NOT_AUTOMATICALLY_RECOVERABLE = "NOT_AUTOMATICALLY_RECOVERABLE"
-    UNKNOWN = "UNKNOWN"
-
-
-class AttemptState(StrEnum):
-    ALLOCATED = "ALLOCATED"
-    STARTING = "STARTING"
-    ACTIVE = "ACTIVE"
-    SUSPENDED = "SUSPENDED"
-    EXITED = "EXITED"
-    LOST = "LOST"
-
-
-class CommandState(StrEnum):
-    ACCEPTED = "ACCEPTED"
-    PROCESSING = "PROCESSING"
-    APPLIED = "APPLIED"
-    FAILED = "FAILED"
-
-
-class OriginType(StrEnum):
-    NEW_IDEA = "NEW_IDEA"
-    GITHUB_REPOSITORY = "GITHUB_REPOSITORY"
-    OTHER_REPOSITORY = "OTHER_REPOSITORY"
 
 
 class Principal(Base):

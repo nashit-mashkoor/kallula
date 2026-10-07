@@ -22,6 +22,8 @@ build-backend = "hatchling.build"
 packages = [
     "apps/api",
     "apps/coordinator",
+    "packages/domain",
+    "packages/engine",
     "packages/observability",
     "packages/persistence",
 ]
