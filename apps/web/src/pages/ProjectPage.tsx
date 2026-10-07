@@ -1,13 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { createRun, getProject, listRuns } from "../api/client";
+import { useAccountStream } from "../hooks/useAccountStream";
 
 export function ProjectPage() {
   const { projectId = "" } = useParams();
   const [objective, setObjective] = useState("Build the initial product");
   const queryClient = useQueryClient();
+
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+    void queryClient.invalidateQueries({ queryKey: ["runs", projectId] });
+  }, [queryClient, projectId]);
+  useAccountStream(refresh);
 
   const project = useQuery({
     queryKey: ["project", projectId],
@@ -16,7 +23,6 @@ export function ProjectPage() {
   const runs = useQuery({
     queryKey: ["runs", projectId],
     queryFn: () => listRuns(projectId),
-    refetchInterval: 2000,
   });
   const mutation = useMutation({
     mutationFn: () => createRun(projectId, objective),
