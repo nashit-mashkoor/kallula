@@ -296,3 +296,5 @@ https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am2
 ```
 
 The issues are ordered by implementation dependency. Create the next milestone label when the current milestone passes its Definition of Done.
+
+Important technology and implementation decisions are recorded as architecture decision records in [`docs/decisions/`](./docs/decisions/README.md).

@@ -396,6 +396,7 @@ kallula/
 +-- docs/
 |   |
 |   +-- README.md
+|   +-- decisions/
 |   +-- Kallula — Product Requirements Document.md
 |   +-- Kallula — System Architecture & State Model.md
 |   +-- Kallula — Siesta Engine Adaptation Specification.md
@@ -2060,7 +2061,7 @@ Use:
 - migrations for schema history;
 - the normative Kallula documents for product/system contracts.
 
-Recommended ADR examples:
+Recorded ADRs live in `docs/decisions/`. Recommended ADR examples:
 
 ```text
 ADR-001 PostgreSQL transaction isolation choice

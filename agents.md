@@ -18,6 +18,17 @@ Start with `README.md`. Then read the documents that are relevant to the task be
 
 Follow the documented design. Do not silently override or bypass decisions in `docs/`.
 
+## Records and decisions
+
+Keep each kind of record in its own place:
+
+- normative product, system, architecture, security, runtime, and API decisions: `docs/`;
+- important technology or implementation decisions: architecture decision records in `docs/decisions/`;
+- implementation tasks: GitHub issues with one label per milestone (`m0`, `m1`, ...);
+- project status: the README "Current status" section and the Implementation Plan header.
+
+Close an issue with a one-line outcome. Detailed verification belongs in the commit message, not in the issue.
+
 ## Keep code and documentation synchronized
 
 Code and documentation must never go out of sync.
