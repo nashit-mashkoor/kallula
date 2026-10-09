@@ -7,6 +7,7 @@ services:
       dockerfile: apps/api/Dockerfile
     environment:
       DATABASE_URL: sqlite+aiosqlite:////data/kallula.db
+      WORKSPACE_ROOT: /data/workspaces
       LOG_LEVEL: INFO
     volumes:
       - kallula-data:/data

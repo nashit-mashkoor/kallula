@@ -10,6 +10,7 @@ from api.settings import Settings, get_settings
 from api.v1 import api_router
 from observability.logging import configure_logging
 from persistence.db import create_db_engine, create_session_factory
+from runtime.base.workspace import WorkspaceManager
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -28,6 +29,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Kallula API", version="0.0.0", lifespan=lifespan)
     app.state.settings = resolved_settings
+    app.state.workspace_manager = WorkspaceManager(resolved_settings.workspace_root)
     app.add_middleware(RequestIdMiddleware)
     register_problem_handlers(app)
     app.include_router(api_router)

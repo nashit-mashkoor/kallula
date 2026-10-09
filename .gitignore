@@ -24,6 +24,9 @@ dist/
 *.sqlite
 *.sqlite3
 
+# Local runtime data
+var/
+
 # Operating system
 .DS_Store
 Thumbs.db

@@ -26,6 +26,7 @@ packages = [
     "packages/engine",
     "packages/observability",
     "packages/persistence",
+    "packages/runtime",
 ]
 
 [dependency-groups]

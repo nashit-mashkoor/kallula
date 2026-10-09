@@ -885,6 +885,8 @@ Response:
 201 Created
 ```
 
+Creation allocates the canonical Project workspace under the deployment workspace root and initializes its Git repository. If the workspace cannot be allocated, creation fails with `DEPENDENCY_UNAVAILABLE` and no Project is created.
+
 ## 18.3 Patch Project
 
 Mutable Project defaults only.

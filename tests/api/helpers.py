@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
@@ -32,7 +33,13 @@ def prepare_database(database_url: str) -> None:
     asyncio.run(_prepare_database(database_url))
 
 
+def workspace_root_for(database_url: str) -> Path:
+    database_path = Path(database_url.removeprefix("sqlite+aiosqlite:///"))
+    return database_path.parent / "workspaces"
+
+
 def build_client(database_url: str, **overrides) -> TestClient:
+    overrides.setdefault("workspace_root", workspace_root_for(database_url))
     settings = Settings(
         database_url=database_url, log_level="WARNING", _env_file=None, **overrides
     )

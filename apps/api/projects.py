@@ -13,6 +13,7 @@ from api.idempotency import IdempotencyConflictError
 from api.principals import get_or_create_dev_principal
 from api.problems import problem_response
 from persistence.models import OriginType, Project, Workspace, WorkspaceStatus
+from runtime.base.workspace import WorkspaceError, WorkspaceManager
 
 router = APIRouter(tags=["projects"])
 
@@ -170,11 +171,26 @@ async def create_project(
     workspace = Workspace(
         project_id=project.id,
         storage_driver="local",
-        storage_key=f"projects/{project.id}",
-        status=WorkspaceStatus.READY,
+        storage_key=f"projects/{project.id}/workspace",
     )
     session.add(workspace)
     await session.flush()
+
+    manager: WorkspaceManager = request.app.state.workspace_manager
+    try:
+        manager.allocate(workspace.storage_key)
+    except WorkspaceError as exc:
+        await session.rollback()
+        internal = exc.code == "WORKSPACE_PATH_ESCAPE"
+        return problem_response(
+            request,
+            500 if internal else 503,
+            detail="The project workspace could not be allocated.",
+            code="INTERNAL_ERROR" if internal else "DEPENDENCY_UNAVAILABLE",
+        )
+
+    workspace.status = WorkspaceStatus.READY
+    workspace.validated_at = datetime.now(UTC)
     project.workspace_id = workspace.id
     project.workspace_status = WorkspaceStatus.READY
     await session.flush()

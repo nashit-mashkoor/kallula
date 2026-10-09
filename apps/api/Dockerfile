@@ -11,6 +11,10 @@ COPY apps/api apps/api
 COPY apps/coordinator apps/coordinator
 COPY packages packages
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN uv sync --frozen --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH"
