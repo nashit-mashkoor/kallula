@@ -3,20 +3,45 @@ import asyncio
 from sqlalchemy import select
 
 from coordinator.loop import process_queued_runs
-from domain.states import EventSeverity, EventSource
+from domain.states import EventSource, Recoverability, RunControlState
+from engine.base import (
+    EngineCapabilities,
+    EngineDescriptor,
+    EngineIdentity,
+    EngineOutcome,
+    EngineResult,
+)
 from engine.fake import FakeEngine, FakeScenario
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
-from persistence.models import Event, Principal, Project, Run
+from persistence.models import Event, ExecutionAttempt, Principal, Project, Run
 
 LIFECYCLE = [
     "RUN_STARTING",
     "ATTEMPT_ALLOCATED",
     "ATTEMPT_STARTED",
     "RUN_STARTED",
+    "STAGE_STARTED",
+    "WORK_ITEM_STARTED",
+    "WORK_ITEM_COMPLETED",
+    "STAGE_COMPLETED",
     "ATTEMPT_EXITED",
     "RUN_COMPLETED",
 ]
+
+
+class UnverifiedEngine:
+    def describe(self) -> EngineDescriptor:
+        return EngineDescriptor(
+            identity=EngineIdentity(family="FAKE", revision="1", adapter_version="1"),
+            capabilities=EngineCapabilities(),
+        )
+
+    async def run(self, request, hooks) -> EngineResult:
+        return EngineResult(
+            outcome=EngineOutcome.TERMINAL_UNVERIFIED_OR_INCOMPLETE,
+            failure_summary="Verification did not pass.",
+        )
 
 
 async def prepare(database_url: str):
@@ -41,9 +66,9 @@ async def seed_queued_run(session) -> Run:
     return run
 
 
-def test_run_lifecycle_emits_ordered_events(tmp_path):
+def test_engine_events_are_persisted(tmp_path):
     async def scenario():
-        engine = await prepare(f"sqlite+aiosqlite:///{tmp_path / 'events.db'}")
+        engine = await prepare(f"sqlite+aiosqlite:///{tmp_path / 'engine-events.db'}")
         factory = create_session_factory(engine)
         try:
             async with factory() as session:
@@ -53,7 +78,9 @@ def test_run_lifecycle_emits_ordered_events(tmp_path):
 
             async with factory() as session:
                 processed = await process_queued_runs(
-                    session, holder_id="test", engine_factory=FakeEngine
+                    session,
+                    holder_id="test",
+                    engine_factory=lambda: FakeEngine(FakeScenario.EMIT_WORK_ITEMS),
                 )
                 assert processed == 1
 
@@ -70,25 +97,43 @@ def test_run_lifecycle_emits_ordered_events(tmp_path):
                     .all()
                 )
                 assert [event.event_type for event in events] == LIFECYCLE
-                assert [event.sequence for event in events] == [1, 2, 3, 4, 5, 6]
+
+                engine_events = [
+                    event
+                    for event in events
+                    if event.source is EventSource.ENGINE_ADAPTER
+                ]
+                assert [event.source_event_sequence for event in engine_events] == [
+                    1,
+                    2,
+                    3,
+                    4,
+                ]
                 assert all(
-                    event.source is EventSource.RUN_COORDINATOR for event in events
+                    event.stage_category == "EXECUTION" for event in engine_events
                 )
-                assert all(event.severity is EventSeverity.INFO for event in events)
+                assert all(event.stage_label == "Execution" for event in engine_events)
+                assert all(event.stage_order == 4 for event in engine_events)
+
+                attempt = (await session.execute(select(ExecutionAttempt))).scalar_one()
+                assert all(event.attempt_id == attempt.id for event in engine_events)
 
                 run = (
                     await session.execute(select(Run).where(Run.id == run_id))
                 ).scalar_one()
-                assert run.last_event_sequence == 6
+                assert run.control_state is RunControlState.COMPLETED
+                assert run.last_event_sequence == 10
         finally:
             await engine.dispose()
 
     asyncio.run(scenario())
 
 
-def test_failure_emits_error_event(tmp_path):
+def test_unverified_outcome_marks_run_failed(tmp_path):
     async def scenario():
-        engine = await prepare(f"sqlite+aiosqlite:///{tmp_path / 'events.db'}")
+        engine = await prepare(
+            f"sqlite+aiosqlite:///{tmp_path / 'unverified-engine.db'}"
+        )
         factory = create_session_factory(engine)
         try:
             async with factory() as session:
@@ -97,15 +142,21 @@ def test_failure_emits_error_event(tmp_path):
                 run_id = run.id
 
             async with factory() as session:
-                await process_queued_runs(
-                    session,
-                    holder_id="test",
-                    engine_factory=lambda: FakeEngine(
-                        FakeScenario.FAIL_DURING_EXECUTION
-                    ),
+                processed = await process_queued_runs(
+                    session, holder_id="test", engine_factory=UnverifiedEngine
                 )
+                assert processed == 1
 
             async with factory() as session:
+                run = (
+                    await session.execute(select(Run).where(Run.id == run_id))
+                ).scalar_one()
+                assert run.control_state is RunControlState.FAILED
+                assert run.failure_class == "ENGINE_FAILURE"
+                assert run.failure_code == "ENGINE_UNVERIFIED"
+                assert run.failure_summary == "Verification did not pass."
+                assert run.recoverability is Recoverability.UNKNOWN
+
                 last = (
                     (
                         await session.execute(
@@ -119,8 +170,7 @@ def test_failure_emits_error_event(tmp_path):
                 )
                 assert last is not None
                 assert last.event_type == "RUN_FAILED"
-                assert last.severity is EventSeverity.ERROR
-                assert last.summary
+                assert last.payload_json == {"code": "ENGINE_UNVERIFIED"}
         finally:
             await engine.dispose()
 

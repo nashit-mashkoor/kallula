@@ -50,7 +50,9 @@ def test_queued_run_completes(tmp_path):
                 run_id = run.id
 
             async with factory() as session:
-                processed = await process_queued_runs(session, holder_id="test")
+                processed = await process_queued_runs(
+                    session, holder_id="test", engine_factory=FakeEngine
+                )
                 assert processed == 1
 
             async with factory() as session:
@@ -119,10 +121,20 @@ def test_processing_is_idempotent_across_restarts(tmp_path):
                 run_id = run.id
 
             async with factory() as session:
-                assert await process_queued_runs(session, holder_id="first") == 1
+                assert (
+                    await process_queued_runs(
+                        session, holder_id="first", engine_factory=FakeEngine
+                    )
+                    == 1
+                )
 
             async with factory() as session:
-                assert await process_queued_runs(session, holder_id="second") == 0
+                assert (
+                    await process_queued_runs(
+                        session, holder_id="second", engine_factory=FakeEngine
+                    )
+                    == 0
+                )
 
             async with factory() as session:
                 stored = (
@@ -155,7 +167,9 @@ def test_run_is_skipped_when_project_lease_is_held(tmp_path):
                 await session.commit()
 
             async with factory() as session:
-                processed = await process_queued_runs(session, holder_id="test")
+                processed = await process_queued_runs(
+                    session, holder_id="test", engine_factory=FakeEngine
+                )
                 assert processed == 0
 
             async with factory() as session:

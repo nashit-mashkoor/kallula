@@ -11,6 +11,7 @@ from coordinator.loop import (
     default_holder_id,
     process_queued_runs,
 )
+from engine.fake import FakeEngine
 from observability.logging import configure_logging
 from persistence.db import check_database, create_db_engine, create_session_factory
 
@@ -54,7 +55,9 @@ async def run() -> None:
         while not stop.is_set():
             try:
                 async with factory() as session:
-                    processed = await process_queued_runs(session, holder_id=holder_id)
+                    processed = await process_queued_runs(
+                        session, holder_id=holder_id, engine_factory=FakeEngine
+                    )
                     if processed:
                         logger.info("processed runs", extra={"count": processed})
             except Exception:

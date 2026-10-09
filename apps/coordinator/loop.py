@@ -6,10 +6,15 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.states import AttemptState, EventSeverity, Recoverability, RunControlState
+from domain.states import (
+    AttemptState,
+    EventSeverity,
+    EventSource,
+    Recoverability,
+    RunControlState,
+)
 from domain.transitions import next_attempt_state, next_run_state
-from engine.base import Engine, EngineOutcome
-from engine.fake import FakeEngine
+from engine.base import Engine, EngineEvent, EngineOutcome, EngineRunRequest
 from persistence import leases
 from persistence.attempts import create_attempt
 from persistence.events import append_event
@@ -26,6 +31,33 @@ def default_holder_id() -> str:
 
 def _naive_now(moment: datetime | None = None) -> datetime:
     return (moment or datetime.now(UTC)).replace(tzinfo=None)
+
+
+class _RunEventSink:
+    def __init__(self, session: AsyncSession, run: Run, attempt_id: str) -> None:
+        self._session = session
+        self._run = run
+        self._attempt_id = attempt_id
+
+    async def on_event(self, event: EngineEvent) -> None:
+        stage = event.stage
+        await append_event(
+            self._session,
+            self._run,
+            event_type=event.event_type,
+            category=event.category,
+            summary=event.summary,
+            source=EventSource.ENGINE_ADAPTER,
+            severity=event.severity,
+            attempt_id=self._attempt_id,
+            source_event_sequence=event.source_event_sequence,
+            payload=dict(event.payload) if event.payload else None,
+            stage_category=stage.category.value if stage else None,
+            stage_native_id=stage.native_id if stage else None,
+            stage_label=stage.display_label if stage else None,
+            stage_order=stage.order if stage else None,
+            occurred_at=event.occurred_at,
+        )
 
 
 async def drive_run(
@@ -82,13 +114,16 @@ async def drive_run(
             summary="Run started.",
             attempt_id=attempt.id,
         )
-        result = engine.run()
+        request = EngineRunRequest(
+            project_id=run.project_id, run_id=run.id, attempt_id=attempt.id
+        )
+        result = await engine.run(request, _RunEventSink(session, run, attempt.id))
         attempt.state = next_attempt_state(attempt.state, AttemptState.EXITED)
         attempt.ended_at = moment
         attempt.terminal_reason = "ENGINE_OUTCOME"
 
         run.active_attempt_id = None
-        if result.outcome is EngineOutcome.COMPLETED:
+        if result.outcome is EngineOutcome.COMPLETED_VERIFIED:
             run.control_state = next_run_state(
                 run.control_state, RunControlState.COMPLETED
             )
@@ -109,12 +144,21 @@ async def drive_run(
                 summary="Run completed.",
             )
         else:
+            if result.outcome is EngineOutcome.TERMINAL_UNVERIFIED_OR_INCOMPLETE:
+                failure_code = "ENGINE_UNVERIFIED"
+                failure_summary = (
+                    result.failure_summary
+                    or "Engine finished without verified completion."
+                )
+            else:
+                failure_code = "ENGINE_FAILED"
+                failure_summary = result.failure_summary or "Run failed."
             run.control_state = next_run_state(
                 run.control_state, RunControlState.FAILED
             )
             run.failure_class = "ENGINE_FAILURE"
-            run.failure_code = "ENGINE_FAILED"
-            run.failure_summary = result.failure_summary
+            run.failure_code = failure_code
+            run.failure_summary = failure_summary
             run.recoverability = Recoverability.UNKNOWN
             await append_event(
                 session,
@@ -130,8 +174,8 @@ async def drive_run(
                 event_type="RUN_FAILED",
                 category="RUN",
                 severity=EventSeverity.ERROR,
-                summary=result.failure_summary or "Run failed.",
-                payload={"code": "ENGINE_FAILED"},
+                summary=failure_summary,
+                payload={"code": failure_code},
             )
         run.version += 1
         run.updated_at = moment
@@ -150,7 +194,7 @@ async def process_queued_runs(
     session: AsyncSession,
     *,
     holder_id: str,
-    engine_factory: Callable[[], Engine] = FakeEngine,
+    engine_factory: Callable[[], Engine],
     now: datetime | None = None,
 ) -> int:
     runs = (
