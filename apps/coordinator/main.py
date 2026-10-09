@@ -4,7 +4,7 @@ import signal
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from coordinator.engines import build_engine_factory
+from coordinator.engines import build_engine_factory, register_pinned_installation
 from coordinator.loop import (
     POLL_INTERVAL_SECONDS,
     default_holder_id,
@@ -46,6 +46,17 @@ async def run() -> None:
     engine_factory = build_engine_factory(settings)
     if engine_factory is None:
         logger.warning("engine execution is unavailable in this mode")
+    else:
+        try:
+            async with factory() as session:
+                installation = await register_pinned_installation(session, settings)
+                await session.commit()
+            logger.info(
+                "pinned engine installation registered",
+                extra={"installation_id": installation.id},
+            )
+        except Exception:
+            logger.exception("engine installation registration failed")
     stop = asyncio.Event()
     _install_signal_handlers(stop)
     logger.info("coordinator ready")

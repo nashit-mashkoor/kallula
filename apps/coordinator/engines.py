@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -8,9 +10,10 @@ from coordinator.loop import EngineFactory
 from coordinator.settings import CoordinatorSettings
 from domain.states import EngineRuntimeState
 from engine.base import Engine, EngineError
-from engine.siesta import SiestaAdapter
+from engine.siesta import SiestaAdapter, capability_manifest, inspect_engine
+from persistence import installations as installations_repo
 from persistence import workspaces
-from persistence.models import Run
+from persistence.models import EngineInstallation, Run
 from persistence.runtimes import ensure_run_runtime
 from runtime.base.engine_runtime import EngineRuntimeManager
 from runtime.base.storage import StorageError
@@ -60,3 +63,33 @@ def build_engine_factory(
         )
 
     return factory
+
+
+async def register_pinned_installation(
+    session: AsyncSession, settings: CoordinatorSettings
+) -> EngineInstallation:
+    source_root = Path(settings.engine_source_root)
+    descriptor = inspect_engine(source_root)
+    manifest = capability_manifest()
+    digest = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                {
+                    "family": descriptor.identity.family,
+                    "revision": descriptor.identity.revision,
+                    "adapter_version": descriptor.identity.adapter_version,
+                    "manifest": manifest,
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+    )
+    return await installations_repo.register(
+        session,
+        engine_family=descriptor.identity.family,
+        engine_revision=descriptor.identity.revision,
+        adapter_version=descriptor.identity.adapter_version,
+        installation_digest=digest,
+        capability_manifest=manifest,
+    )
