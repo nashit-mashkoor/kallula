@@ -15,6 +15,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from domain.states import (
+    ArtifactClass,
+    ArtifactStorageKind,
     AttemptState,
     CommandState,
     CompatibilityStatus,
@@ -25,6 +27,7 @@ from domain.states import (
     OriginType,
     Recoverability,
     RunControlState,
+    WorkItemState,
     WorkspaceStatus,
 )
 from persistence.base import Base
@@ -231,6 +234,43 @@ class RunEngineRuntime(Base):
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class WorkItem(Base):
+    __tablename__ = "work_items"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    engine_key: Mapped[str] = mapped_column(String(64))
+    ordinal: Mapped[int | None] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text, default="")
+    acceptance_criteria_json: Mapped[list] = mapped_column(JSON, default=list)
+    state: Mapped[WorkItemState] = mapped_column(
+        Enum(
+            WorkItemState,
+            name="work_item_state",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        ),
+        default=WorkItemState.PENDING,
+    )
+    blocker: Mapped[str | None] = mapped_column(Text)
+    related_commit: Mapped[str | None] = mapped_column(String(64))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "engine_key"),
+        UniqueConstraint("run_id", "ordinal"),
+    )
+
+
 class ExecutionAttempt(Base):
     __tablename__ = "execution_attempts"
 
@@ -407,6 +447,44 @@ class EngineInstallation(Base):
         default=CompatibilityStatus.UNKNOWN,
     )
     capability_manifest_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("runs.id"))
+    attempt_id: Mapped[str | None] = mapped_column(ForeignKey("execution_attempts.id"))
+    artifact_class: Mapped[ArtifactClass] = mapped_column(
+        Enum(
+            ArtifactClass,
+            name="artifact_class",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        )
+    )
+    display_name: Mapped[str] = mapped_column(String(255))
+    media_type: Mapped[str | None] = mapped_column(String(128))
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    content_hash: Mapped[str | None] = mapped_column(String(128))
+    storage_kind: Mapped[ArtifactStorageKind] = mapped_column(
+        Enum(
+            ArtifactStorageKind,
+            name="artifact_storage_kind",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        ),
+        default=ArtifactStorageKind.WORKSPACE_REFERENCE,
+    )
+    storage_key: Mapped[str] = mapped_column(String(512))
+    source_identity_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )

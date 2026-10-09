@@ -35,7 +35,7 @@ def test_capability_manifest_is_honest_for_this_milestone():
     }
     assert manifest["run_control"] == {"safe_stop": False, "resume": False}
     assert manifest["native_state_format_version"] == 1
-    assert "verification_verdict" in manifest["artifacts"]
+    assert "VERIFICATION_EVIDENCE" in manifest["artifacts"]
 
 
 def test_child_env_is_explicitly_allowlisted(monkeypatch):

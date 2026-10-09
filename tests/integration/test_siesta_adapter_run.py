@@ -113,6 +113,7 @@ def test_adapter_launches_pinned_revision_with_workspace_injection(
     assert "WORK_ITEM_STARTED" in event_types
     assert "WORK_ITEM_COMPLETED" in event_types
     assert "VERIFICATION_COMPLETED" in event_types
+    assert "ARTIFACT_DISCOVERED" in event_types
     assert [event.source_event_sequence for event in hooks.events] == list(
         range(1, len(event_types) + 1)
     )
@@ -122,6 +123,20 @@ def test_adapter_launches_pinned_revision_with_workspace_injection(
         if event.event_type == "WORK_ITEM_COMPLETED"
     }
     assert completed == {"1", "2"}
+    artifact_classes = {
+        event.payload["artifact_class"]
+        for event in hooks.events
+        if event.event_type == "ARTIFACT_DISCOVERED"
+    }
+    assert {"SPECIFICATION", "PLAN", "TEST_EVIDENCE", "VERIFICATION_EVIDENCE"} <= (
+        artifact_classes
+    )
+    discovered_titles = {
+        event.payload["title"]
+        for event in hooks.events
+        if event.event_type == "WORK_ITEM_DISCOVERED"
+    }
+    assert discovered_titles == {"Add hello", "Add bye"}
     verification = next(
         event for event in hooks.events if event.event_type == "VERIFICATION_COMPLETED"
     )

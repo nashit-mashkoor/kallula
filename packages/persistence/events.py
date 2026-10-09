@@ -24,6 +24,7 @@ async def append_event(
     stage_label: str | None = None,
     stage_order: int | None = None,
     work_item_id: str | None = None,
+    artifact_ids: list[str] | None = None,
     occurred_at: datetime | None = None,
 ) -> Event:
     sequence = run.last_event_sequence + 1
@@ -44,6 +45,7 @@ async def append_event(
         summary=summary,
         payload_version=payload_version,
         payload_json=payload or {},
+        artifact_ids_json=artifact_ids or [],
         occurred_at=occurred_at or datetime.now(UTC),
     )
     session.add(event)

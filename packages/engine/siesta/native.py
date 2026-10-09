@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,7 +7,9 @@ from pathlib import Path
 from engine.base import EngineOutcome, EngineStage, StageCategory
 from engine.siesta.errors import SiestaAdapterError
 
-ISSUE_HEADER = re.compile(r"^##[ \t]+Issue[ \t]+#(\d+)", re.MULTILINE)
+ISSUE_HEADER = re.compile(
+    r"^##[ \t]+Issue[ \t]+#(\d+)[ \t]*:?[ \t]*(.*)$", re.MULTILINE
+)
 ISSUE_NUMBER = re.compile(r"[Ii]ssue #(\d+)")
 
 PHASE_STAGES = {
@@ -39,21 +42,21 @@ STAGE_LABELS = {
 }
 
 ARTIFACT_PATTERNS = (
-    ("intent_transcript", "interview_output.txt"),
-    ("intent_closeout_evidence", "interview_closeout.txt"),
-    ("specification", "spec.md"),
-    ("implementation_plan", "issues.md"),
-    ("project_knowledge", "kb/graph.json"),
-    ("knowledge_schema", "kb/schema.json"),
-    ("engine_checkpoint", ".pipeline-checkpoint"),
-    ("engine_idea_record", ".pipeline-idea"),
-    ("verification_verdict", "verify_verdict.txt"),
-    ("issue_output", "issue_*_output.txt"),
-    ("test_evidence", "regression_*.log"),
-    ("pre_issue_context", "pre_issue_*.json"),
-    ("issue_learning", "learning_issue_*.txt"),
-    ("project_learning", "project_learning.*"),
-    ("recovery_archive", ".git/siesta-recovery"),
+    ("INTERVIEW_TRANSCRIPT", "interview_output.txt"),
+    ("INTERVIEW_TRANSCRIPT", "interview_closeout.txt"),
+    ("SPECIFICATION", "spec.md"),
+    ("PLAN", "issues.md"),
+    ("KNOWLEDGE", "kb/graph.json"),
+    ("KNOWLEDGE", "kb/schema.json"),
+    ("ENGINE_CHECKPOINT", ".pipeline-checkpoint"),
+    ("OTHER", ".pipeline-idea"),
+    ("VERIFICATION_EVIDENCE", "verify_verdict.txt"),
+    ("OTHER", "issue_*_output.txt"),
+    ("TEST_EVIDENCE", "regression_*.log"),
+    ("OTHER", "pre_issue_*.json"),
+    ("LEARNING", "learning_issue_*.txt"),
+    ("LEARNING", "project_learning.*"),
+    ("RECOVERY", ".git/siesta-recovery"),
 )
 
 ARTIFACT_CLASSES = tuple(sorted({name for name, _ in ARTIFACT_PATTERNS}))
@@ -61,17 +64,26 @@ ARTIFACT_CLASSES = tuple(sorted({name for name, _ in ARTIFACT_PATTERNS}))
 
 @dataclass(frozen=True)
 class NativeArtifact:
-    normalized_class: str
+    artifact_class: str
+    display_name: str
+    relative_path: str
     path: Path
+
+
+@dataclass(frozen=True)
+class NativeIssue:
+    number: int
+    title: str
+    started: bool
+    completed: bool
+    blocked: bool
+    blocker: str | None
 
 
 @dataclass(frozen=True)
 class NativeState:
     checkpoint: str | None
-    issues: tuple[int, ...]
-    started_issues: tuple[int, ...]
-    completed_issues: tuple[int, ...]
-    blocked_issues: tuple[int, ...]
+    issues: tuple[NativeIssue, ...]
     verdict: str | None
     failed: bool
 
@@ -102,21 +114,26 @@ def inspect_workspace(workspace: Path) -> NativeState:
     checkpoint = _read_text(workspace / ".pipeline-checkpoint")
     if checkpoint is not None:
         checkpoint = checkpoint.strip() or None
+    discovered = _discovered_issues(workspace / "issues.md")
+    started = _numbered_evidence(workspace, "pre_issue_*.json")
+    completed, blockers, failed = _read_ledger(workspace / "kb" / "graph.json")
     issues = tuple(
-        int(match.group(1))
-        for match in ISSUE_HEADER.finditer(_read_text(workspace / "issues.md") or "")
+        NativeIssue(
+            number=number,
+            title=title,
+            started=number in started,
+            completed=number in completed,
+            blocked=number in blockers,
+            blocker=blockers.get(number),
+        )
+        for number, title in discovered
     )
-    started = tuple(sorted(_numbered_evidence(workspace, "pre_issue_*.json")))
-    completed, blocked, failed = _read_ledger(workspace / "kb" / "graph.json")
     verdict = _read_text(workspace / "verify_verdict.txt")
     if verdict is not None:
         verdict = verdict.strip() or None
     return NativeState(
         checkpoint=checkpoint,
         issues=issues,
-        started_issues=started,
-        completed_issues=completed,
-        blocked_issues=blocked,
         verdict=verdict,
         failed=failed,
     )
@@ -125,19 +142,61 @@ def inspect_workspace(workspace: Path) -> NativeState:
 def discover_artifacts(workspace: Path) -> list[NativeArtifact]:
     workspace = Path(workspace)
     found: list[NativeArtifact] = []
-    for normalized_class, pattern in ARTIFACT_PATTERNS:
+    for artifact_class, pattern in ARTIFACT_PATTERNS:
         for path in sorted(workspace.glob(pattern)):
-            found.append(NativeArtifact(normalized_class, path))
+            relative = path.relative_to(workspace).as_posix()
+            found.append(
+                NativeArtifact(
+                    artifact_class=artifact_class,
+                    display_name=artifact_display_name(relative),
+                    relative_path=relative,
+                    path=path,
+                )
+            )
     return found
+
+
+def artifact_display_name(relative_path: str) -> str:
+    fixed = {
+        "interview_output.txt": "Interview transcript",
+        "interview_closeout.txt": "Interview closeout",
+        "spec.md": "Specification",
+        "issues.md": "Implementation plan",
+        "kb/graph.json": "Project knowledge",
+        "kb/schema.json": "Knowledge schema",
+        ".pipeline-checkpoint": "Engine checkpoint",
+        ".pipeline-idea": "Engine idea record",
+        "verify_verdict.txt": "Verification verdict",
+        "project_learning.log": "Project learning",
+    }
+    if relative_path in fixed:
+        return fixed[relative_path]
+    name = relative_path.rsplit("/", 1)[-1]
+    number = _trailing_number(name)
+    if number is not None:
+        if name.startswith("regression_"):
+            return f"Test evidence for issue {number}"
+        if name.startswith("issue_"):
+            return f"Issue {number} output"
+        if name.startswith("pre_issue_"):
+            return f"Pre-issue context for issue {number}"
+        if name.startswith("learning_issue_"):
+            return f"Learning for issue {number}"
+    if relative_path.startswith(".git/siesta-recovery"):
+        return "Recovery archive"
+    if name.startswith("project_learning"):
+        return "Project learning"
+    return "Artifact"
 
 
 def classify_outcome(
     state: NativeState, returncode: int | None
 ) -> tuple[EngineOutcome, str | None]:
+    blocked = [issue.number for issue in state.issues if issue.blocked]
     verified = (
         state.checkpoint == "complete"
         and state.verdict == "VERIFY_PASSED"
-        and not state.blocked_issues
+        and not blocked
     )
     if verified:
         return EngineOutcome.COMPLETED_VERIFIED, None
@@ -154,9 +213,8 @@ def classify_outcome(
     details = []
     if state.verdict is not None:
         details.append(f"verdict {state.verdict}")
-    if state.blocked_issues:
-        blocked = ", ".join(f"#{number}" for number in state.blocked_issues)
-        details.append(f"blocked issues {blocked}")
+    if blocked:
+        details.append("blocked issues " + ", ".join(f"#{n}" for n in blocked))
     if state.checkpoint is not None:
         details.append(f"checkpoint {state.checkpoint}")
     summary = "The engine finished without verified completion"
@@ -166,11 +224,24 @@ def classify_outcome(
     return EngineOutcome.TERMINAL_UNVERIFIED_OR_INCOMPLETE, summary
 
 
+def _trailing_number(name: str) -> int | None:
+    match = re.search(r"_(\d+)", name)
+    return int(match.group(1)) if match else None
+
+
 def _read_text(path: Path) -> str | None:
     try:
         return path.read_text(errors="replace")
     except OSError:
         return None
+
+
+def _discovered_issues(path: Path) -> list[tuple[int, str]]:
+    raw = _read_text(path) or ""
+    return [
+        (int(match.group(1)), match.group(2).strip())
+        for match in ISSUE_HEADER.finditer(raw)
+    ]
 
 
 def _numbered_evidence(workspace: Path, pattern: str) -> set[int]:
@@ -182,10 +253,12 @@ def _numbered_evidence(workspace: Path, pattern: str) -> set[int]:
     return numbers
 
 
-def _read_ledger(path: Path) -> tuple[tuple[int, ...], tuple[int, ...], bool]:
+def _read_ledger(
+    path: Path,
+) -> tuple[set[int], dict[int, str], bool]:
     raw = _read_text(path)
     if raw is None or not raw.strip():
-        return (), (), False
+        return set(), {}, False
     try:
         ledger = json.loads(raw)
     except ValueError as exc:
@@ -194,7 +267,7 @@ def _read_ledger(path: Path) -> tuple[tuple[int, ...], tuple[int, ...], bool]:
             "The project knowledge base is not readable.",
         ) from exc
     completed: set[int] = set()
-    blocked: set[int] = set()
+    blockers: dict[int, str] = {}
     failed = False
     for node in ledger.get("nodes", []):
         node_type = node.get("type")
@@ -206,7 +279,12 @@ def _read_ledger(path: Path) -> tuple[tuple[int, ...], tuple[int, ...], bool]:
         elif node_type == "blocker":
             match = ISSUE_NUMBER.search(summary)
             if match:
-                blocked.add(int(match.group(1)))
+                blockers[int(match.group(1))] = summary
             elif summary == "Pipeline failed":
                 failed = True
-    return tuple(sorted(completed)), tuple(sorted(blocked)), failed
+    return completed, blockers, failed
+
+
+def media_type_for(path: Path) -> str | None:
+    guessed, _ = mimetypes.guess_type(path.name)
+    return guessed

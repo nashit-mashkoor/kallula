@@ -3,7 +3,12 @@ import asyncio
 from sqlalchemy import select
 
 from coordinator.loop import process_queued_runs
-from domain.states import EventSource, Recoverability, RunControlState
+from domain.states import (
+    EventSource,
+    Recoverability,
+    RunControlState,
+    WorkItemState,
+)
 from engine.base import (
     EngineCapabilities,
     EngineDescriptor,
@@ -14,7 +19,14 @@ from engine.base import (
 from engine.fake import FakeEngine, FakeScenario
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
-from persistence.models import Event, ExecutionAttempt, Principal, Project, Run
+from persistence.models import (
+    Event,
+    ExecutionAttempt,
+    Principal,
+    Project,
+    Run,
+    WorkItem,
+)
 
 LIFECYCLE = [
     "RUN_STARTING",
@@ -22,6 +34,10 @@ LIFECYCLE = [
     "ATTEMPT_STARTED",
     "RUN_STARTED",
     "STAGE_STARTED",
+    "WORK_ITEM_DISCOVERED",
+    "WORK_ITEM_DISCOVERED",
+    "WORK_ITEM_STARTED",
+    "WORK_ITEM_COMPLETED",
     "WORK_ITEM_STARTED",
     "WORK_ITEM_COMPLETED",
     "STAGE_COMPLETED",
@@ -103,26 +119,57 @@ def test_engine_events_are_persisted(tmp_path):
                     for event in events
                     if event.source is EventSource.ENGINE_ADAPTER
                 ]
-                assert [event.source_event_sequence for event in engine_events] == [
-                    1,
-                    2,
-                    3,
-                    4,
-                ]
-                assert all(
-                    event.stage_category == "EXECUTION" for event in engine_events
+                assert [event.source_event_sequence for event in engine_events] == list(
+                    range(1, 9)
                 )
-                assert all(event.stage_label == "Execution" for event in engine_events)
-                assert all(event.stage_order == 4 for event in engine_events)
+                assert all(
+                    event.stage_category == "EXECUTION"
+                    for event in engine_events
+                    if event.event_type.startswith("WORK_ITEM_")
+                )
+                assert all(
+                    event.stage_label == "Execution"
+                    for event in engine_events
+                    if event.event_type.startswith("WORK_ITEM_")
+                )
+                assert all(
+                    event.stage_order == 4
+                    for event in engine_events
+                    if event.event_type.startswith("WORK_ITEM_")
+                )
 
                 attempt = (await session.execute(select(ExecutionAttempt))).scalar_one()
                 assert all(event.attempt_id == attempt.id for event in engine_events)
+
+                work_items = (
+                    (await session.execute(select(WorkItem).order_by(WorkItem.ordinal)))
+                    .scalars()
+                    .all()
+                )
+                assert [item.engine_key for item in work_items] == [
+                    "issue:1",
+                    "issue:2",
+                ]
+                assert [item.title for item in work_items] == ["Add hello", "Add bye"]
+                assert [item.state for item in work_items] == [
+                    WorkItemState.COMPLETED,
+                    WorkItemState.COMPLETED,
+                ]
+                assert [item.attempt_count for item in work_items] == [1, 1]
+                started_event = next(
+                    event for event in events if event.event_type == "WORK_ITEM_STARTED"
+                )
+                assert started_event.work_item_id == work_items[0].id
 
                 run = (
                     await session.execute(select(Run).where(Run.id == run_id))
                 ).scalar_one()
                 assert run.control_state is RunControlState.COMPLETED
-                assert run.last_event_sequence == 10
+                assert run.last_event_sequence == 14
+                assert run.current_stage_category == "EXECUTION"
+                assert run.current_stage_label == "Execution"
+                assert run.current_stage_order == 4
+                assert run.active_work_item_id is None
         finally:
             await engine.dispose()
 

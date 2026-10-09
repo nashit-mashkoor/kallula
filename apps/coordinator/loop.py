@@ -6,15 +6,15 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from coordinator.sink import RunEventSink
 from domain.states import (
     AttemptState,
     EventSeverity,
-    EventSource,
     Recoverability,
     RunControlState,
 )
 from domain.transitions import next_attempt_state, next_run_state
-from engine.base import Engine, EngineEvent, EngineOutcome, EngineRunRequest
+from engine.base import Engine, EngineOutcome, EngineRunRequest
 from persistence import leases
 from persistence.attempts import create_attempt
 from persistence.events import append_event
@@ -31,33 +31,6 @@ def default_holder_id() -> str:
 
 def _naive_now(moment: datetime | None = None) -> datetime:
     return (moment or datetime.now(UTC)).replace(tzinfo=None)
-
-
-class _RunEventSink:
-    def __init__(self, session: AsyncSession, run: Run, attempt_id: str) -> None:
-        self._session = session
-        self._run = run
-        self._attempt_id = attempt_id
-
-    async def on_event(self, event: EngineEvent) -> None:
-        stage = event.stage
-        await append_event(
-            self._session,
-            self._run,
-            event_type=event.event_type,
-            category=event.category,
-            summary=event.summary,
-            source=EventSource.ENGINE_ADAPTER,
-            severity=event.severity,
-            attempt_id=self._attempt_id,
-            source_event_sequence=event.source_event_sequence,
-            payload=dict(event.payload) if event.payload else None,
-            stage_category=stage.category.value if stage else None,
-            stage_native_id=stage.native_id if stage else None,
-            stage_label=stage.display_label if stage else None,
-            stage_order=stage.order if stage else None,
-            occurred_at=event.occurred_at,
-        )
 
 
 async def drive_run(
@@ -117,7 +90,7 @@ async def drive_run(
         request = EngineRunRequest(
             project_id=run.project_id, run_id=run.id, attempt_id=attempt.id
         )
-        result = await engine.run(request, _RunEventSink(session, run, attempt.id))
+        result = await engine.run(request, RunEventSink(session, run, attempt.id))
         attempt.state = next_attempt_state(attempt.state, AttemptState.EXITED)
         attempt.ended_at = moment
         attempt.terminal_reason = "ENGINE_OUTCOME"

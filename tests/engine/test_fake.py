@@ -45,11 +45,15 @@ def test_emit_work_items_emits_structured_events():
     assert result.outcome is EngineOutcome.COMPLETED_VERIFIED
     assert [event.event_type for event in hooks.events] == [
         "STAGE_STARTED",
+        "WORK_ITEM_DISCOVERED",
+        "WORK_ITEM_DISCOVERED",
+        "WORK_ITEM_STARTED",
+        "WORK_ITEM_COMPLETED",
         "WORK_ITEM_STARTED",
         "WORK_ITEM_COMPLETED",
         "STAGE_COMPLETED",
     ]
-    assert [event.source_event_sequence for event in hooks.events] == [1, 2, 3, 4]
+    assert [event.source_event_sequence for event in hooks.events] == list(range(1, 9))
     assert all(event.stage is not None for event in hooks.events)
     assert all(
         event.stage.category is StageCategory.EXECUTION for event in hooks.events
@@ -57,9 +61,19 @@ def test_emit_work_items_emits_structured_events():
     assert [event.work_item_native_id for event in hooks.events] == [
         None,
         "1",
+        "2",
         "1",
+        "1",
+        "2",
+        "2",
         None,
     ]
+    discovered = [
+        event.payload["title"]
+        for event in hooks.events
+        if event.event_type == "WORK_ITEM_DISCOVERED"
+    ]
+    assert discovered == ["Add hello", "Add bye"]
 
 
 def test_describe_reports_identity_and_capabilities():

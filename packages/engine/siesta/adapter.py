@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -19,10 +21,13 @@ from engine.siesta.identity import inspect_engine
 from engine.siesta.native import (
     PHASE_STAGES,
     STAGE_SEQUENCE,
+    NativeArtifact,
     NativeState,
     classify_outcome,
+    discover_artifacts,
     inspect_workspace,
     make_stage,
+    media_type_for,
     project_slug,
 )
 
@@ -148,6 +153,19 @@ async def _drain(stream: asyncio.StreamReader) -> str:
     return data.decode(errors="replace")
 
 
+def _git_source_identity(workspace: Path) -> dict:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(workspace), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return {}
+    return {"git_commit": result.stdout.strip()}
+
+
 class _EventEmitter:
     def __init__(self, hooks: EngineHooks) -> None:
         self._hooks = hooks
@@ -158,6 +176,7 @@ class _EventEmitter:
         self._blocked: set[int] = set()
         self._completed: set[int] = set()
         self._verdict_emitted = False
+        self._artifacts: set[str] = set()
 
     async def begin(self) -> None:
         await self._emit_stage("STAGE_STARTED", StageCategory.REQUIREMENTS)
@@ -167,6 +186,7 @@ class _EventEmitter:
         await self._emit_stage_progress(state)
         await self._emit_work_items(state)
         await self._emit_verification(state)
+        await self._emit_artifacts(workspace)
 
     async def _emit_stage_progress(self, state: NativeState) -> None:
         traversed = 0
@@ -184,50 +204,52 @@ class _EventEmitter:
 
     async def _emit_work_items(self, state: NativeState) -> None:
         stage = make_stage(StageCategory.EXECUTION)
-        for number in state.issues:
-            if number in self._discovered:
+        for issue in state.issues:
+            if issue.number in self._discovered:
                 continue
-            self._discovered.add(number)
+            self._discovered.add(issue.number)
             await self._emit(
                 "WORK_ITEM_DISCOVERED",
                 "WORK_ITEM",
-                f"Work item {number} discovered.",
+                f"Work item {issue.number} discovered.",
                 stage=stage,
-                work_item_native_id=str(number),
+                work_item_native_id=str(issue.number),
+                payload={"title": issue.title},
             )
-        for number in state.started_issues:
-            if number in self._started:
+        for issue in state.issues:
+            if not issue.started or issue.number in self._started:
                 continue
-            self._started.add(number)
+            self._started.add(issue.number)
             await self._emit(
                 "WORK_ITEM_STARTED",
                 "WORK_ITEM",
-                f"Work item {number} started.",
+                f"Work item {issue.number} started.",
                 stage=stage,
-                work_item_native_id=str(number),
+                work_item_native_id=str(issue.number),
             )
-        for number in state.blocked_issues:
-            if number in self._blocked:
+        for issue in state.issues:
+            if not issue.blocked or issue.number in self._blocked:
                 continue
-            self._blocked.add(number)
+            self._blocked.add(issue.number)
             await self._emit(
                 "WORK_ITEM_BLOCKED",
                 "WORK_ITEM",
-                f"Work item {number} blocked.",
+                f"Work item {issue.number} blocked.",
                 severity=EventSeverity.WARNING,
                 stage=stage,
-                work_item_native_id=str(number),
+                work_item_native_id=str(issue.number),
+                payload={"blocker": issue.blocker},
             )
-        for number in state.completed_issues:
-            if number in self._completed:
+        for issue in state.issues:
+            if not issue.completed or issue.number in self._completed:
                 continue
-            self._completed.add(number)
+            self._completed.add(issue.number)
             await self._emit(
                 "WORK_ITEM_COMPLETED",
                 "WORK_ITEM",
-                f"Work item {number} completed.",
+                f"Work item {issue.number} completed.",
                 stage=stage,
-                work_item_native_id=str(number),
+                work_item_native_id=str(issue.number),
             )
 
     async def _emit_verification(self, state: NativeState) -> None:
@@ -247,6 +269,40 @@ class _EventEmitter:
             stage=make_stage(StageCategory.VERIFICATION),
             payload={"verdict": state.verdict},
         )
+
+    async def _emit_artifacts(self, workspace: Path) -> None:
+        source_identity = _git_source_identity(workspace)
+        for artifact in discover_artifacts(workspace):
+            if artifact.relative_path in self._artifacts:
+                continue
+            self._artifacts.add(artifact.relative_path)
+            await self._emit(
+                "ARTIFACT_DISCOVERED",
+                "ARTIFACT",
+                f"{artifact.display_name} recorded.",
+                payload=self._artifact_payload(artifact, source_identity),
+            )
+
+    def _artifact_payload(
+        self, artifact: NativeArtifact, source_identity: dict
+    ) -> dict:
+        payload: dict = {
+            "artifact_class": artifact.artifact_class,
+            "display_name": artifact.display_name,
+            "relative_path": artifact.relative_path,
+        }
+        if artifact.path.is_file():
+            try:
+                payload["size_bytes"] = artifact.path.stat().st_size
+                payload["content_hash"] = (
+                    "sha256:" + hashlib.sha256(artifact.path.read_bytes()).hexdigest()
+                )
+            except OSError:
+                pass
+            payload["media_type"] = media_type_for(artifact.path)
+        if source_identity:
+            payload["source_identity"] = source_identity
+        return payload
 
     async def _emit_stage(
         self,

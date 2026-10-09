@@ -14,10 +14,16 @@ from api.idempotency import IdempotencyConflictError
 from api.installations import installation_response
 from api.problems import problem_response
 from api.projects import etag, owned_project
-from domain.states import EventSource
+from domain.states import EventSource, WorkItemState
 from persistence import installations
 from persistence.events import append_event
-from persistence.models import EngineInstallation, Project, Run, RunConfigSnapshot
+from persistence.models import (
+    EngineInstallation,
+    Project,
+    Run,
+    RunConfigSnapshot,
+    WorkItem,
+)
 
 router = APIRouter(tags=["runs"])
 
@@ -33,7 +39,7 @@ def content_hash(values: dict) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def run_response(run: Run) -> dict:
+def run_response(run: Run, work_item_summary: dict | None = None) -> dict:
     stage: dict | None = None
     if run.current_stage_category is not None:
         stage = {
@@ -59,6 +65,7 @@ def run_response(run: Run) -> dict:
         "control_state": run.control_state.value,
         "stage": stage,
         "active_work_item_id": run.active_work_item_id,
+        "work_item_summary": work_item_summary,
         "effective_config_snapshot_id": run.effective_config_snapshot_id,
         "engine_installation_id": run.engine_installation_id,
         "environment_snapshot_id": run.environment_snapshot_id,
@@ -74,6 +81,31 @@ def run_response(run: Run) -> dict:
         "updated_at": run.updated_at.isoformat(),
         "version": run.version,
     }
+
+
+async def work_item_summaries(
+    session: AsyncSession, run_ids: list[str]
+) -> dict[str, dict]:
+    summaries = {
+        run_id: {"completed": 0, "total": 0, "blocked": 0} for run_id in run_ids
+    }
+    if not run_ids:
+        return summaries
+    rows = (
+        await session.execute(
+            select(WorkItem.run_id, WorkItem.state, func.count())
+            .where(WorkItem.run_id.in_(run_ids))
+            .group_by(WorkItem.run_id, WorkItem.state)
+        )
+    ).all()
+    for run_id, state, count in rows:
+        summary = summaries[run_id]
+        summary["total"] += count
+        if state is WorkItemState.COMPLETED:
+            summary["completed"] += count
+        elif state is WorkItemState.BLOCKED:
+            summary["blocked"] += count
+    return summaries
 
 
 def config_response(
@@ -151,7 +183,11 @@ async def list_runs(
         .scalars()
         .all()
     )
-    return {"items": [run_response(run) for run in runs], "next_cursor": None}
+    summaries = await work_item_summaries(session, [run.id for run in runs])
+    return {
+        "items": [run_response(run, summaries[run.id]) for run in runs],
+        "next_cursor": None,
+    }
 
 
 @router.post("/projects/{project_id}/runs", status_code=201)
@@ -253,7 +289,7 @@ async def create_run(
     project.current_run_id = run.id
     await session.flush()
 
-    response_body = run_response(run)
+    response_body = run_response(run, {"completed": 0, "total": 0, "blocked": 0})
     await idempotency.store(
         session,
         principal_id=principal_id,
@@ -283,7 +319,11 @@ async def get_run(
         return problem_response(
             request, 404, title="Not Found", detail="Run not found."
         )
-    return JSONResponse(content=run_response(run), headers={"ETag": etag(run.version)})
+    summaries = await work_item_summaries(session, [run.id])
+    return JSONResponse(
+        content=run_response(run, summaries[run.id]),
+        headers={"ETag": etag(run.version)},
+    )
 
 
 @router.get("/runs/{run_id}/configuration")
