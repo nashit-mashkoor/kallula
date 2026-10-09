@@ -2,7 +2,8 @@ import subprocess
 
 import pytest
 
-from runtime.base.workspace import WorkspaceError, WorkspaceManager
+from runtime.base.storage import StorageError
+from runtime.base.workspace import WorkspaceManager
 
 STORAGE_KEY = "projects/project-1/workspace"
 
@@ -38,20 +39,20 @@ def test_allocate_is_idempotent(tmp_path):
 def test_allocate_rejects_relative_path_escape(tmp_path):
     manager = WorkspaceManager(tmp_path / "root")
 
-    with pytest.raises(WorkspaceError) as excinfo:
+    with pytest.raises(StorageError) as excinfo:
         manager.allocate("../outside")
 
-    assert excinfo.value.code == "WORKSPACE_PATH_ESCAPE"
+    assert excinfo.value.code == "STORAGE_PATH_ESCAPE"
     assert not (tmp_path / "outside").exists()
 
 
 def test_allocate_rejects_absolute_path(tmp_path):
     manager = WorkspaceManager(tmp_path / "root")
 
-    with pytest.raises(WorkspaceError) as excinfo:
+    with pytest.raises(StorageError) as excinfo:
         manager.allocate(str(tmp_path / "elsewhere"))
 
-    assert excinfo.value.code == "WORKSPACE_PATH_ESCAPE"
+    assert excinfo.value.code == "STORAGE_PATH_ESCAPE"
     assert not (tmp_path / "elsewhere").exists()
 
 
@@ -63,10 +64,10 @@ def test_allocate_rejects_symlinked_projects_root(tmp_path):
     (root / "projects").symlink_to(outside)
     manager = WorkspaceManager(root)
 
-    with pytest.raises(WorkspaceError) as excinfo:
+    with pytest.raises(StorageError) as excinfo:
         manager.allocate(STORAGE_KEY)
 
-    assert excinfo.value.code == "WORKSPACE_PATH_ESCAPE"
+    assert excinfo.value.code == "STORAGE_PATH_ESCAPE"
     assert list(outside.iterdir()) == []
 
 
@@ -80,7 +81,7 @@ def test_path_for_returns_allocated_workspace(tmp_path):
 def test_path_for_rejects_unallocated_workspace(tmp_path):
     manager = WorkspaceManager(tmp_path / "root")
 
-    with pytest.raises(WorkspaceError) as excinfo:
+    with pytest.raises(StorageError) as excinfo:
         manager.path_for(STORAGE_KEY)
 
     assert excinfo.value.code == "WORKSPACE_NOT_ALLOCATED"
@@ -91,7 +92,7 @@ def test_allocate_reports_unusable_root(tmp_path):
     blocked.write_text("not a directory")
     manager = WorkspaceManager(blocked)
 
-    with pytest.raises(WorkspaceError) as excinfo:
+    with pytest.raises(StorageError) as excinfo:
         manager.allocate(STORAGE_KEY)
 
     assert excinfo.value.code == "WORKSPACE_ALLOCATION_FAILED"

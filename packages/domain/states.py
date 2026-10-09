@@ -48,6 +48,12 @@ class EngineInstallationStatus(StrEnum):
     BLOCKED = "BLOCKED"
 
 
+class EngineRuntimeState(StrEnum):
+    INITIALIZING = "INITIALIZING"
+    READY = "READY"
+    ERROR = "ERROR"
+
+
 class CompatibilityStatus(StrEnum):
     SUPPORTED = "SUPPORTED"
     UNSUPPORTED = "UNSUPPORTED"

@@ -19,6 +19,7 @@ from domain.states import (
     CommandState,
     CompatibilityStatus,
     EngineInstallationStatus,
+    EngineRuntimeState,
     EventSeverity,
     EventSource,
     OriginType,
@@ -204,6 +205,30 @@ class Run(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
     __table_args__ = (UniqueConstraint("project_id", "ordinal"),)
+
+
+class RunEngineRuntime(Base):
+    __tablename__ = "run_engine_runtimes"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"), unique=True)
+    storage_driver: Mapped[str] = mapped_column(String(64))
+    storage_key: Mapped[str] = mapped_column(String(512))
+    state: Mapped[EngineRuntimeState] = mapped_column(
+        Enum(
+            EngineRuntimeState,
+            name="engine_runtime_state",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        ),
+        default=EngineRuntimeState.INITIALIZING,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class ExecutionAttempt(Base):

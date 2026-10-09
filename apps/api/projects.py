@@ -13,7 +13,8 @@ from api.idempotency import IdempotencyConflictError
 from api.principals import get_or_create_dev_principal
 from api.problems import problem_response
 from persistence.models import OriginType, Project, Workspace, WorkspaceStatus
-from runtime.base.workspace import WorkspaceError, WorkspaceManager
+from runtime.base.storage import StorageError
+from runtime.base.workspace import WorkspaceManager
 
 router = APIRouter(tags=["projects"])
 
@@ -179,9 +180,9 @@ async def create_project(
     manager: WorkspaceManager = request.app.state.workspace_manager
     try:
         manager.allocate(workspace.storage_key)
-    except WorkspaceError as exc:
+    except StorageError as exc:
         await session.rollback()
-        internal = exc.code == "WORKSPACE_PATH_ESCAPE"
+        internal = exc.code == "STORAGE_PATH_ESCAPE"
         return problem_response(
             request,
             500 if internal else 503,

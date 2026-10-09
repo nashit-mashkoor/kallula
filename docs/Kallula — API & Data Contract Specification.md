@@ -3786,6 +3786,14 @@ validated_at nullable
 metadata_json
 ```
 
+`state`:
+
+```text
+INITIALIZING
+READY
+ERROR
+```
+
 Browser API does not return physical `storage_key`.
 
 Run configuration/diagnostics may expose:
