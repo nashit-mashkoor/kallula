@@ -1,4 +1,6 @@
-from helpers import fetch_events
+from helpers import build_client, fetch_events, seed_installation
+
+from domain.states import CompatibilityStatus, EngineInstallationStatus
 
 
 def create_project(client, key="project-key"):
@@ -30,6 +32,7 @@ def test_create_run_starts_queued(client):
     assert body["ordinal"] == 1
     assert body["objective"] == "Build it"
     assert body["effective_config_snapshot_id"]
+    assert body["engine_installation_id"]
     assert response.headers["ETag"] == '"v1"'
 
 
@@ -75,9 +78,51 @@ def test_get_run_and_configuration(client):
     assert cfg["run_id"] == run["id"]
     assert cfg["content_hash"]
     assert cfg["agent_profile_version_id"] is None
+    assert cfg["engine_installation_id"] == run["engine_installation_id"]
+    assert cfg["capability_manifest_hash"]
+    installation = cfg["engine_installation"]
+    assert installation["engine_family"] == "SIESTA"
+    assert installation["engine_revision"] == "20b149e0734b09730dfd22803d2695776fcf84b8"
+    assert installation["status"] == "SUPPORTED"
 
     project_after = client.get(f"/api/v1/projects/{project['id']}").json()
     assert project_after["current_run_id"] == run["id"]
+
+
+def test_create_run_requires_launch_compatible_installation(database_url):
+    with build_client(database_url) as client:
+        project = create_project(client)
+
+        response = create_run(client, project["id"])
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "ENGINE_INCOMPATIBLE"
+        listing = client.get(f"/api/v1/projects/{project['id']}/runs").json()
+        assert listing["items"] == []
+
+
+def test_create_run_rejects_unlaunchable_installation(database_url):
+    seed_installation(database_url, status=EngineInstallationStatus.CANDIDATE)
+    with build_client(database_url) as client:
+        project = create_project(client)
+
+        response = create_run(client, project["id"])
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "ENGINE_INCOMPATIBLE"
+
+
+def test_create_run_rejects_launch_incompatible_installation(database_url):
+    seed_installation(
+        database_url, compatibility_launch=CompatibilityStatus.UNSUPPORTED
+    )
+    with build_client(database_url) as client:
+        project = create_project(client)
+
+        response = create_run(client, project["id"])
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "ENGINE_INCOMPATIBLE"
 
 
 def test_second_run_gets_next_ordinal(client):

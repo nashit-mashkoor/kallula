@@ -17,6 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from domain.states import (
     AttemptState,
     CommandState,
+    CompatibilityStatus,
+    EngineInstallationStatus,
     EventSeverity,
     EventSource,
     OriginType,
@@ -308,6 +310,81 @@ class IdempotencyRecord(Base):
         DateTime(timezone=True), default=utcnow
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class EngineInstallation(Base):
+    __tablename__ = "engine_installations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    engine_family: Mapped[str] = mapped_column(String(32))
+    engine_revision: Mapped[str] = mapped_column(String(64))
+    adapter_version: Mapped[str] = mapped_column(String(32))
+    installation_digest: Mapped[str] = mapped_column(String(128))
+    status: Mapped[EngineInstallationStatus] = mapped_column(
+        Enum(
+            EngineInstallationStatus,
+            name="engine_installation_status",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        ),
+        default=EngineInstallationStatus.CANDIDATE,
+    )
+    default_for_new_runs: Mapped[bool] = mapped_column(Boolean, default=False)
+    compatibility_launch: Mapped[CompatibilityStatus] = mapped_column(
+        Enum(
+            CompatibilityStatus,
+            name="compatibility_status_launch",
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+        ),
+        default=CompatibilityStatus.UNKNOWN,
+    )
+    compatibility_state_format: Mapped[CompatibilityStatus] = mapped_column(
+        Enum(
+            CompatibilityStatus,
+            name="compatibility_status_state_format",
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+        ),
+        default=CompatibilityStatus.UNKNOWN,
+    )
+    compatibility_resume: Mapped[CompatibilityStatus] = mapped_column(
+        Enum(
+            CompatibilityStatus,
+            name="compatibility_status_resume",
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+        ),
+        default=CompatibilityStatus.UNKNOWN,
+    )
+    compatibility_security: Mapped[CompatibilityStatus] = mapped_column(
+        Enum(
+            CompatibilityStatus,
+            name="compatibility_status_security",
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+        ),
+        default=CompatibilityStatus.UNKNOWN,
+    )
+    compatibility_runtime: Mapped[CompatibilityStatus] = mapped_column(
+        Enum(
+            CompatibilityStatus,
+            name="compatibility_status_runtime",
+            native_enum=False,
+            create_constraint=True,
+            length=16,
+        ),
+        default=CompatibilityStatus.UNKNOWN,
+    )
+    capability_manifest_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
 
 
 class Event(Base):

@@ -5,10 +5,18 @@ from sqlalchemy import delete, select
 
 from api.main import create_app
 from api.settings import Settings
+from domain.states import CompatibilityStatus, EngineInstallationStatus
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
 from persistence.events import append_event
-from persistence.models import Command, Event, Principal, Project, Run
+from persistence.models import (
+    Command,
+    EngineInstallation,
+    Event,
+    Principal,
+    Project,
+    Run,
+)
 
 
 async def _prepare_database(database_url: str) -> None:
@@ -29,6 +37,42 @@ def build_client(database_url: str, **overrides) -> TestClient:
         database_url=database_url, log_level="WARNING", _env_file=None, **overrides
     )
     return TestClient(create_app(settings))
+
+
+async def _seed_installation(
+    database_url: str,
+    *,
+    status: EngineInstallationStatus = EngineInstallationStatus.SUPPORTED,
+    compatibility_launch: CompatibilityStatus = CompatibilityStatus.SUPPORTED,
+    default_for_new_runs: bool = True,
+) -> str:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            installation = EngineInstallation(
+                engine_family="SIESTA",
+                engine_revision="20b149e0734b09730dfd22803d2695776fcf84b8",
+                adapter_version="0.1.0",
+                installation_digest="sha256:test-installation",
+                status=status,
+                default_for_new_runs=default_for_new_runs,
+                compatibility_launch=compatibility_launch,
+                capability_manifest_json={
+                    "schema_version": 1,
+                    "work_items": True,
+                    "verification": True,
+                },
+            )
+            session.add(installation)
+            await session.commit()
+            return installation.id
+    finally:
+        await engine.dispose()
+
+
+def seed_installation(database_url: str, **kwargs) -> str:
+    return asyncio.run(_seed_installation(database_url, **kwargs))
 
 
 async def _seed_command(database_url: str) -> str:

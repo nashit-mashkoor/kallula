@@ -11,11 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api import idempotency
 from api.dependencies import get_principal_id, get_session
 from api.idempotency import IdempotencyConflictError
+from api.installations import installation_response
 from api.problems import problem_response
 from api.projects import etag, owned_project
 from domain.states import EventSource
+from persistence import installations
 from persistence.events import append_event
-from persistence.models import Project, Run, RunConfigSnapshot
+from persistence.models import EngineInstallation, Project, Run, RunConfigSnapshot
 
 router = APIRouter(tags=["runs"])
 
@@ -74,11 +76,16 @@ def run_response(run: Run) -> dict:
     }
 
 
-def config_response(snapshot: RunConfigSnapshot) -> dict:
+def config_response(
+    snapshot: RunConfigSnapshot, installation: EngineInstallation | None
+) -> dict:
     return {
         "id": snapshot.id,
         "run_id": snapshot.run_id,
         "engine_installation_id": snapshot.engine_installation_id,
+        "engine_installation": (
+            installation_response(installation) if installation else None
+        ),
         "capability_manifest_hash": snapshot.capability_manifest_hash,
         "agent_profile_version_id": snapshot.agent_profile_version_id,
         "agent_slots": snapshot.agent_slots_json,
@@ -199,6 +206,16 @@ async def create_run(
             headers={"ETag": etag(snapshot_response.get("version", 1))},
         )
 
+    installation = await installations.default_installation(session)
+    if installation is None or not installations.launch_compatible(installation):
+        return problem_response(
+            request,
+            409,
+            title="Conflict",
+            detail="No launch-compatible engine installation is available.",
+            code="ENGINE_INCOMPATIBLE",
+        )
+
     max_ordinal = (
         await session.execute(
             select(func.max(Run.ordinal)).where(Run.project_id == project.id)
@@ -208,6 +225,7 @@ async def create_run(
         project_id=project.id,
         ordinal=(max_ordinal or 0) + 1,
         objective=payload.objective,
+        engine_installation_id=installation.id,
     )
     session.add(run)
     await session.flush()
@@ -223,9 +241,11 @@ async def create_run(
 
     snapshot = RunConfigSnapshot(
         run_id=run.id,
+        engine_installation_id=installation.id,
+        capability_manifest_hash=content_hash(installation.capability_manifest_json),
         agent_profile_version_id=payload.agent_profile_version_id,
         environment_profile_version_id=payload.environment_profile_version_id,
-        content_hash=content_hash(body),
+        content_hash=content_hash({**body, "engine_installation_id": installation.id}),
     )
     session.add(snapshot)
     await session.flush()
@@ -278,4 +298,13 @@ async def get_run_configuration(
         return problem_response(
             request, 404, title="Not Found", detail="Run not found."
         )
-    return config_response(snapshot)
+    installation = None
+    if snapshot.engine_installation_id is not None:
+        installation = (
+            await session.execute(
+                select(EngineInstallation).where(
+                    EngineInstallation.id == snapshot.engine_installation_id
+                )
+            )
+        ).scalar_one_or_none()
+    return config_response(snapshot, installation)

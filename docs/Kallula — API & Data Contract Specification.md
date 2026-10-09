@@ -1116,6 +1116,8 @@ or `STARTING` if orchestration already claimed it.
 
 Creation freezes the effective configuration snapshot before engine work begins.
 
+Creation pins the default Engine Installation into the snapshot and the Run. If no default installation exists or its launch compatibility is not `SUPPORTED`, creation fails with `ENGINE_INCOMPATIBLE` and no Run is created.
+
 ---
 
 # 22. Run Effective Configuration Snapshot
@@ -1157,6 +1159,8 @@ API:
 ```text
 GET /api/v1/runs/{run_id}/configuration
 ```
+
+The response embeds the pinned installation identity as `engine_installation` using the §44.1 shape. It is `null` only when the snapshot has no pinned installation.
 
 Response is read-only.
 

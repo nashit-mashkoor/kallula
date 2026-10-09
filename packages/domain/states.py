@@ -41,6 +41,19 @@ class CommandState(StrEnum):
     FAILED = "FAILED"
 
 
+class EngineInstallationStatus(StrEnum):
+    CANDIDATE = "CANDIDATE"
+    SUPPORTED = "SUPPORTED"
+    DEPRECATED = "DEPRECATED"
+    BLOCKED = "BLOCKED"
+
+
+class CompatibilityStatus(StrEnum):
+    SUPPORTED = "SUPPORTED"
+    UNSUPPORTED = "UNSUPPORTED"
+    UNKNOWN = "UNKNOWN"
+
+
 class OriginType(StrEnum):
     NEW_IDEA = "NEW_IDEA"
     GITHUB_REPOSITORY = "GITHUB_REPOSITORY"
