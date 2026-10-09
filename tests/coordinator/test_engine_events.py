@@ -1,5 +1,6 @@
 import asyncio
 
+from factories import static_factory
 from sqlalchemy import select
 
 from coordinator.loop import process_queued_runs
@@ -12,6 +13,7 @@ from domain.states import (
 from engine.base import (
     EngineCapabilities,
     EngineDescriptor,
+    EngineEvent,
     EngineIdentity,
     EngineOutcome,
     EngineResult,
@@ -96,7 +98,9 @@ def test_engine_events_are_persisted(tmp_path):
                 processed = await process_queued_runs(
                     session,
                     holder_id="test",
-                    engine_factory=lambda: FakeEngine(FakeScenario.EMIT_WORK_ITEMS),
+                    engine_factory=static_factory(
+                        FakeEngine(FakeScenario.EMIT_WORK_ITEMS)
+                    ),
                 )
                 assert processed == 1
 
@@ -190,7 +194,9 @@ def test_unverified_outcome_marks_run_failed(tmp_path):
 
             async with factory() as session:
                 processed = await process_queued_runs(
-                    session, holder_id="test", engine_factory=UnverifiedEngine
+                    session,
+                    holder_id="test",
+                    engine_factory=static_factory(UnverifiedEngine()),
                 )
                 assert processed == 1
 
@@ -218,6 +224,67 @@ def test_unverified_outcome_marks_run_failed(tmp_path):
                 assert last is not None
                 assert last.event_type == "RUN_FAILED"
                 assert last.payload_json == {"code": "ENGINE_UNVERIFIED"}
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+class DuplicateEventEngine:
+    def describe(self) -> EngineDescriptor:
+        return EngineDescriptor(
+            identity=EngineIdentity(family="FAKE", revision="1", adapter_version="1"),
+            capabilities=EngineCapabilities(),
+        )
+
+    async def run(self, request, hooks) -> EngineResult:
+        event = EngineEvent(
+            event_type="WORK_ITEM_STARTED",
+            category="WORK_ITEM",
+            summary="Work item 1 started.",
+            source_event_sequence=1,
+            work_item_native_id="1",
+        )
+        await hooks.on_event(event)
+        await hooks.on_event(event)
+        return EngineResult(outcome=EngineOutcome.COMPLETED_VERIFIED)
+
+
+def test_duplicate_source_event_is_ingested_once(tmp_path):
+    async def scenario():
+        engine = await prepare(f"sqlite+aiosqlite:///{tmp_path / 'duplicates.db'}")
+        factory = create_session_factory(engine)
+        try:
+            async with factory() as session:
+                run = await seed_queued_run(session)
+                await session.commit()
+                run_id = run.id
+
+            async with factory() as session:
+                processed = await process_queued_runs(
+                    session,
+                    holder_id="test",
+                    engine_factory=static_factory(DuplicateEventEngine()),
+                )
+                assert processed == 1
+
+            async with factory() as session:
+                events = (
+                    (
+                        await session.execute(
+                            select(Event).where(
+                                Event.run_id == run_id,
+                                Event.event_type == "WORK_ITEM_STARTED",
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                assert len(events) == 1
+                items = (await session.execute(select(WorkItem))).scalars().all()
+                assert len(items) == 1
+                assert items[0].attempt_count == 1
         finally:
             await engine.dispose()
 

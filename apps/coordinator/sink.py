@@ -1,10 +1,11 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.states import EventSource
 from engine.base import EngineEvent
 from persistence import artifacts, work_items
 from persistence.events import append_event
-from persistence.models import Run, WorkItem
+from persistence.models import Event, Run, WorkItem
 
 
 class RunEventSink:
@@ -14,6 +15,8 @@ class RunEventSink:
         self._attempt_id = attempt_id
 
     async def on_event(self, event: EngineEvent) -> None:
+        if await self._already_ingested(event):
+            return
         work_item = await self._work_item_for(event)
         artifact_ids = await self._store_artifacts(event)
         stage = event.stage
@@ -37,6 +40,19 @@ class RunEventSink:
             occurred_at=event.occurred_at,
         )
         self._apply_run_progress(event, work_item)
+
+    async def _already_ingested(self, event: EngineEvent) -> bool:
+        if event.source_event_sequence is None:
+            return False
+        existing = (
+            await self._session.execute(
+                select(Event.id).where(
+                    Event.attempt_id == self._attempt_id,
+                    Event.source_event_sequence == event.source_event_sequence,
+                )
+            )
+        ).scalar_one_or_none()
+        return existing is not None
 
     async def _work_item_for(self, event: EngineEvent) -> WorkItem | None:
         native_id = event.work_item_native_id
@@ -77,7 +93,10 @@ class RunEventSink:
     def _apply_run_progress(
         self, event: EngineEvent, work_item: WorkItem | None
     ) -> None:
-        if event.stage is not None:
+        if event.stage is not None and event.event_type in (
+            "STAGE_STARTED",
+            "STAGE_COMPLETED",
+        ):
             self._run.current_stage_category = event.stage.category.value
             self._run.current_stage_native_id = event.stage.native_id
             self._run.current_stage_label = event.stage.display_label

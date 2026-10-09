@@ -1,5 +1,6 @@
 import asyncio
 
+from factories import static_factory
 from sqlalchemy import select
 
 from coordinator.loop import process_queued_runs
@@ -53,7 +54,9 @@ def test_run_lifecycle_emits_ordered_events(tmp_path):
 
             async with factory() as session:
                 processed = await process_queued_runs(
-                    session, holder_id="test", engine_factory=FakeEngine
+                    session,
+                    holder_id="test",
+                    engine_factory=static_factory(FakeEngine()),
                 )
                 assert processed == 1
 
@@ -100,8 +103,8 @@ def test_failure_emits_error_event(tmp_path):
                 await process_queued_runs(
                     session,
                     holder_id="test",
-                    engine_factory=lambda: FakeEngine(
-                        FakeScenario.FAIL_DURING_EXECUTION
+                    engine_factory=static_factory(
+                        FakeEngine(FakeScenario.FAIL_DURING_EXECUTION)
                     ),
                 )
 

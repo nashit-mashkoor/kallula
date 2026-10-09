@@ -28,10 +28,14 @@ def create_run(client, project_id, key="run-key"):
 async def drive_runs(database_url: str) -> int:
     engine = create_db_engine(database_url)
     factory = create_session_factory(engine)
+
+    async def engine_factory(session, run):
+        return FakeEngine()
+
     try:
         async with factory() as session:
             return await process_queued_runs(
-                session, holder_id="test", engine_factory=FakeEngine
+                session, holder_id="test", engine_factory=engine_factory
             )
     finally:
         await engine.dispose()

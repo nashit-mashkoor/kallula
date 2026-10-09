@@ -1,5 +1,6 @@
 import asyncio
 
+from factories import static_factory
 from sqlalchemy import select
 
 from coordinator.loop import process_queued_runs
@@ -104,7 +105,9 @@ def test_artifact_events_create_deduplicated_artifact_records(tmp_path):
 
             async with factory() as session:
                 processed = await process_queued_runs(
-                    session, holder_id="test", engine_factory=ArtifactEngine
+                    session,
+                    holder_id="test",
+                    engine_factory=static_factory(ArtifactEngine()),
                 )
                 assert processed == 1
 

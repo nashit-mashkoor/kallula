@@ -200,16 +200,6 @@ def classify_outcome(
     )
     if verified:
         return EngineOutcome.COMPLETED_VERIFIED, None
-    if state.failed:
-        return (
-            EngineOutcome.FAILED,
-            "The engine recorded a pipeline failure in the project knowledge base.",
-        )
-    if state.checkpoint is None and state.verdict is None and not state.issues:
-        return (
-            EngineOutcome.FAILED,
-            f"The engine exited with status {returncode} before producing project state.",
-        )
     details = []
     if state.verdict is not None:
         details.append(f"verdict {state.verdict}")
@@ -217,11 +207,25 @@ def classify_outcome(
         details.append("blocked issues " + ", ".join(f"#{n}" for n in blocked))
     if state.checkpoint is not None:
         details.append(f"checkpoint {state.checkpoint}")
+    if state.verdict is not None or blocked:
+        summary = "The engine finished without verified completion"
+        if details:
+            summary += ": " + "; ".join(details)
+        return EngineOutcome.TERMINAL_UNVERIFIED_OR_INCOMPLETE, summary + "."
+    if state.failed:
+        return (
+            EngineOutcome.FAILED,
+            "The engine recorded a pipeline failure in the project knowledge base.",
+        )
+    if state.checkpoint is None and not state.issues:
+        return (
+            EngineOutcome.FAILED,
+            f"The engine exited with status {returncode} before producing project state.",
+        )
     summary = "The engine finished without verified completion"
     if details:
         summary += ": " + "; ".join(details)
-    summary += "."
-    return EngineOutcome.TERMINAL_UNVERIFIED_OR_INCOMPLETE, summary
+    return EngineOutcome.TERMINAL_UNVERIFIED_OR_INCOMPLETE, summary + "."
 
 
 def _trailing_number(name: str) -> int | None:

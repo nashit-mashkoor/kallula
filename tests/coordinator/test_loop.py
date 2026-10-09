@@ -1,5 +1,6 @@
 import asyncio
 
+from factories import static_factory
 from sqlalchemy import select
 
 from coordinator.loop import process_queued_runs
@@ -51,7 +52,9 @@ def test_queued_run_completes(tmp_path):
 
             async with factory() as session:
                 processed = await process_queued_runs(
-                    session, holder_id="test", engine_factory=FakeEngine
+                    session,
+                    holder_id="test",
+                    engine_factory=static_factory(FakeEngine()),
                 )
                 assert processed == 1
 
@@ -91,8 +94,8 @@ def test_failure_scenario_marks_run_failed(tmp_path):
                 processed = await process_queued_runs(
                     session,
                     holder_id="test",
-                    engine_factory=lambda: FakeEngine(
-                        FakeScenario.FAIL_DURING_EXECUTION
+                    engine_factory=static_factory(
+                        FakeEngine(FakeScenario.FAIL_DURING_EXECUTION)
                     ),
                 )
                 assert processed == 1
@@ -123,7 +126,9 @@ def test_processing_is_idempotent_across_restarts(tmp_path):
             async with factory() as session:
                 assert (
                     await process_queued_runs(
-                        session, holder_id="first", engine_factory=FakeEngine
+                        session,
+                        holder_id="first",
+                        engine_factory=static_factory(FakeEngine()),
                     )
                     == 1
                 )
@@ -131,7 +136,9 @@ def test_processing_is_idempotent_across_restarts(tmp_path):
             async with factory() as session:
                 assert (
                     await process_queued_runs(
-                        session, holder_id="second", engine_factory=FakeEngine
+                        session,
+                        holder_id="second",
+                        engine_factory=static_factory(FakeEngine()),
                     )
                     == 0
                 )
@@ -168,7 +175,9 @@ def test_run_is_skipped_when_project_lease_is_held(tmp_path):
 
             async with factory() as session:
                 processed = await process_queued_runs(
-                    session, holder_id="test", engine_factory=FakeEngine
+                    session,
+                    holder_id="test",
+                    engine_factory=static_factory(FakeEngine()),
                 )
                 assert processed == 0
 
