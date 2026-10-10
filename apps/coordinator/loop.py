@@ -172,6 +172,7 @@ async def drive_run(
             summary="Run started.",
             attempt_id=attempt.id,
         )
+        await session.commit()
         request = EngineRunRequest(
             project_id=run.project_id, run_id=run.id, attempt_id=attempt.id
         )
@@ -214,7 +215,7 @@ async def drive_run(
             holder_id=holder_id,
             lease_epoch=lease.lease_epoch,
         )
-    await session.commit()
+        await session.commit()
 
 
 async def process_queued_runs(

@@ -27,7 +27,7 @@ def build_engine_factory(
 ) -> EngineFactory | None:
     if not settings.development_mode:
         return None
-    source_root = Path(settings.engine_source_root)
+    source_root = Path(settings.engine_source_root).resolve()
     if not source_root.is_dir():
         return None
     workspace_manager = WorkspaceManager(settings.workspace_root)
@@ -47,6 +47,8 @@ def build_engine_factory(
         runtime = await ensure_run_runtime(session, run)
         try:
             runtime_path = runtime_manager.ensure(runtime.storage_key, source_root)
+            if settings.engine_models_config is not None:
+                apply_models_config(runtime_path, Path(settings.engine_models_config))
         except StorageError as exc:
             runtime.state = EngineRuntimeState.ERROR
             raise EngineError("COORDINATOR_RUNTIME_UNAVAILABLE", exc.detail) from exc
@@ -65,10 +67,40 @@ def build_engine_factory(
     return factory
 
 
+def apply_models_config(runtime_path: Path, config_path: Path) -> None:
+    try:
+        content = json.loads(config_path.read_text())
+    except (OSError, ValueError) as exc:
+        raise EngineError(
+            "COORDINATOR_MODELS_CONFIG_INVALID",
+            "The engine model configuration is not readable.",
+        ) from exc
+    for role in ("planner", "worker", "consultant"):
+        entry = content.get(role) if isinstance(content, dict) else None
+        if (
+            not isinstance(entry, dict)
+            or "model" not in entry
+            or "provider" not in entry
+        ):
+            raise EngineError(
+                "COORDINATOR_MODELS_CONFIG_INVALID",
+                f"The engine model configuration is missing the {role} role.",
+            )
+    try:
+        (runtime_path / "config" / "models.json").write_text(
+            json.dumps(content, indent=2) + "\n"
+        )
+    except OSError as exc:
+        raise EngineError(
+            "COORDINATOR_MODELS_CONFIG_INVALID",
+            "The engine model configuration could not be applied.",
+        ) from exc
+
+
 async def register_pinned_installation(
     session: AsyncSession, settings: CoordinatorSettings
 ) -> EngineInstallation:
-    source_root = Path(settings.engine_source_root)
+    source_root = Path(settings.engine_source_root).resolve()
     descriptor = inspect_engine(source_root)
     manifest = capability_manifest()
     digest = (

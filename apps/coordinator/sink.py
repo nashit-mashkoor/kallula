@@ -40,6 +40,7 @@ class RunEventSink:
             occurred_at=event.occurred_at,
         )
         self._apply_run_progress(event, work_item)
+        await self._session.commit()
 
     async def _already_ingested(self, event: EngineEvent) -> bool:
         if event.source_event_sequence is None:

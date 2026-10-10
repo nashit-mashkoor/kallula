@@ -10,6 +10,7 @@ from engine.base import (
     EngineDescriptor,
     EngineEvent,
     EngineHooks,
+    EngineOutcome,
     EngineResult,
     EngineRunRequest,
     EngineStage,
@@ -28,6 +29,7 @@ from engine.siesta.native import (
     inspect_workspace,
     make_stage,
     media_type_for,
+    normalize_idea,
     project_slug,
 )
 
@@ -102,12 +104,17 @@ class SiestaAdapter:
             raise
 
         await stdout_task
-        await stderr_task
+        stderr_text = await stderr_task
         native = inspect_workspace(self._workspace_path)
         outcome, summary = classify_outcome(native, process.returncode)
+        if outcome is EngineOutcome.FAILED:
+            tail = _error_tail(stderr_text)
+            if tail:
+                summary = f"{summary} Last engine output: {tail}"
         return EngineResult(outcome=outcome, failure_summary=summary)
 
     def _prepare_launch(self) -> None:
+        self._check_objective_conflict()
         workspace = self._workspace_path.resolve()
         projects_dir = self._runtime_path / "projects"
         projects_dir.mkdir(parents=True, exist_ok=True)
@@ -127,6 +134,21 @@ class SiestaAdapter:
         else:
             link.symlink_to(workspace, target_is_directory=True)
         self._link_adapted_skills()
+
+    def _check_objective_conflict(self) -> None:
+        idea_file = self._workspace_path / ".pipeline-idea"
+        if not idea_file.is_file():
+            return
+        try:
+            recorded = idea_file.read_text(errors="replace")
+        except OSError:
+            return
+        if normalize_idea(recorded) != normalize_idea(self._objective):
+            raise SiestaAdapterError(
+                "SIESTA_OBJECTIVE_CONFLICT",
+                "The project workspace belongs to a different objective; "
+                "start a new Project for a new objective.",
+            )
 
     def _link_adapted_skills(self) -> None:
         source_agents = self._source_root.parent / ".agents"
@@ -151,6 +173,13 @@ class SiestaAdapter:
 async def _drain(stream: asyncio.StreamReader) -> str:
     data = await stream.read()
     return data.decode(errors="replace")
+
+
+def _error_tail(text: str, limit: int = 400) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    return " | ".join(lines[-3:])[-limit:]
 
 
 def _git_source_identity(workspace: Path) -> dict:

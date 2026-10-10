@@ -1,11 +1,18 @@
 import asyncio
+import json
 from pathlib import Path
 
+import pytest
 from sqlalchemy import select
 
-from coordinator.engines import build_engine_factory, register_pinned_installation
+from coordinator.engines import (
+    apply_models_config,
+    build_engine_factory,
+    register_pinned_installation,
+)
 from coordinator.settings import CoordinatorSettings
 from domain.states import CompatibilityStatus, EngineInstallationStatus
+from engine.base import EngineError
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
 from persistence.models import EngineInstallation
@@ -42,6 +49,50 @@ def test_engine_factory_is_available_with_pinned_source(tmp_path):
     settings = make_settings(tmp_path)
 
     assert build_engine_factory(settings) is not None
+
+
+def test_apply_models_config_writes_runtime_configuration(tmp_path):
+    runtime = tmp_path / "runtime"
+    (runtime / "config").mkdir(parents=True)
+    (runtime / "config" / "models.json").write_text("{}")
+    config = tmp_path / "models.json"
+    config.write_text(
+        json.dumps(
+            {
+                "planner": {"model": "planner-model", "provider": "local"},
+                "worker": {"model": "worker-model", "provider": "local"},
+                "consultant": {"model": "consultant-model", "provider": "local"},
+            }
+        )
+    )
+
+    apply_models_config(runtime, config)
+
+    applied = json.loads((runtime / "config" / "models.json").read_text())
+    assert applied["worker"] == {"model": "worker-model", "provider": "local"}
+    assert set(applied) == {"planner", "worker", "consultant"}
+
+
+def test_apply_models_config_rejects_incomplete_configuration(tmp_path):
+    runtime = tmp_path / "runtime"
+    (runtime / "config").mkdir(parents=True)
+    config = tmp_path / "models.json"
+    config.write_text(json.dumps({"planner": {"model": "m", "provider": "p"}}))
+
+    with pytest.raises(EngineError) as excinfo:
+        apply_models_config(runtime, config)
+
+    assert excinfo.value.code == "COORDINATOR_MODELS_CONFIG_INVALID"
+
+
+def test_apply_models_config_rejects_unreadable_configuration(tmp_path):
+    runtime = tmp_path / "runtime"
+    (runtime / "config").mkdir(parents=True)
+
+    with pytest.raises(EngineError) as excinfo:
+        apply_models_config(runtime, tmp_path / "missing.json")
+
+    assert excinfo.value.code == "COORDINATOR_MODELS_CONFIG_INVALID"
 
 
 def test_register_pinned_installation_is_idempotent(tmp_path):

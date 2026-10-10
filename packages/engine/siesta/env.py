@@ -19,8 +19,8 @@ def build_child_env(
     extra: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     env = {key: os.environ[key] for key in BASE_ENV_KEYS if key in os.environ}
-    env["SIESTA_FACTORY"] = str(runtime_path)
-    env["PYTHONPATH"] = str(source_root)
+    env["SIESTA_FACTORY"] = str(Path(runtime_path).resolve())
+    env["PYTHONPATH"] = str(Path(source_root).resolve())
     env.update(GIT_IDENTITY)
     if extra:
         env.update(extra)

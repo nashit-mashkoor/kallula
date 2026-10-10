@@ -14,5 +14,6 @@ class CoordinatorSettings(BaseSettings):
     development_mode: bool = True
     workspace_root: Path = Path("var/workspaces")
     engine_source_root: Path = Path("vendor/siesta/factory")
+    engine_models_config: Path | None = None
     engine_poll_interval_seconds: float = 0.5
     log_level: str = "INFO"

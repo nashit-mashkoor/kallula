@@ -38,6 +38,18 @@ def test_capability_manifest_is_honest_for_this_milestone():
     assert "VERIFICATION_EVIDENCE" in manifest["artifacts"]
 
 
+def test_child_env_resolves_relative_paths(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    env = build_child_env(
+        source_root=Path("engine/source"),
+        runtime_path=Path("runtime"),
+    )
+
+    assert env["PYTHONPATH"] == str(tmp_path / "engine" / "source")
+    assert env["SIESTA_FACTORY"] == str(tmp_path / "runtime")
+
+
 def test_child_env_is_explicitly_allowlisted(monkeypatch):
     monkeypatch.setenv("KALLULA_TEST_SECRET", "sentinel")
 

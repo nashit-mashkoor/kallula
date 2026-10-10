@@ -109,6 +109,10 @@ def project_slug(idea: str) -> str:
     return name
 
 
+def normalize_idea(text: str) -> str:
+    return re.sub(r"\s+", " ", text.lower()).strip()
+
+
 def inspect_workspace(workspace: Path) -> NativeState:
     workspace = Path(workspace)
     checkpoint = _read_text(workspace / ".pipeline-checkpoint")
