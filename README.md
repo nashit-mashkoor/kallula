@@ -203,6 +203,7 @@ make test           # run backend tests
 make lint           # backend lint and format checks
 make api            # start the API
 make coordinator    # start the coordinator
+make coordinator-stub  # start the coordinator with the local stub model
 make web-install    # install frontend dependencies
 make web            # start the frontend dev server
 make web-test       # run frontend tests
@@ -238,6 +239,20 @@ Rules:
 - never delete or weaken a test only to make it pass.
 
 All automated tests live under the root `tests/` directory.
+
+## Testing without provider APIs
+
+Automated tests are self-contained and make no model-provider calls.
+
+For end-to-end testing, start the coordinator with the local stub model:
+
+```text
+make coordinator-stub
+```
+
+The stub (`scripts/stub/pi`) replaces `pi` on the engine's `PATH`. The engine, persistence, events, work items, artifacts, and browser flow stay real; only model inference is replaced.
+
+Never run real model-provider execution for development, testing, or demos without explicit permission. Real execution requires `DEVELOPMENT_MODE=true` and a real `pi` on `PATH`.
 
 ## Pinned engine
 

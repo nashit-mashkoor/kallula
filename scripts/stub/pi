@@ -1,0 +1,30 @@
+#!/bin/bash
+# Local stub model for end-to-end testing without provider API calls.
+# Replaces `pi` when scripts/stub is first on PATH (see `make coordinator-stub`).
+# Speaks the same markers the engine expects; keep it aligned with the
+# adapter when event or marker handling changes.
+prompt="$*"
+case "$prompt" in
+  *"spec-driven-development"*)
+    printf '# Spec\n\nA tiny todo CLI in Python.\n' ;;
+  *"planning-and-task-breakdown"*)
+    printf '# Issues\n\n## Issue #1: Add hello\nWrite hello.\n\n## Issue #2: Add bye\nWrite bye.\n' ;;
+  *"factory-learner"*)
+    printf 'PROJECT_LEARNING:\n  Project: stub\n  Actions:\n    LEARNING: stub learning — detail\n' ;;
+  *"Evaluate if this review meets"*)
+    printf 'APPROVED: meets the definition of done\n' ;;
+  *"worker requests approval"*)
+    printf 'APPROVED: aligned with the intent\n' ;;
+  *"QA engineer"*)
+    printf 'VERIFY_PASSED: static verification complete\n' ;;
+  *"code-reviewer"*)
+    printf 'REVIEW_PASSED: no issues found\n' ;;
+  *"interview"*)
+    printf 'INTENT_FINALIZED: a tiny todo cli\n' ;;
+  *"issue-executor"*)
+    printf 'def greeting():\n    return "hello"\n' > todo.py
+    printf 'from todo import greeting\n\ndef test_greeting():\n    assert greeting() == "hello"\n' > test_todo.py
+    printf 'ISSUE_OK: implemented the change with tests\n' ;;
+  *)
+    printf 'RESOLUTION: use the standard library\nAPPROACH: simplest path\n' ;;
+esac

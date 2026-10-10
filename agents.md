@@ -74,6 +74,21 @@ Tests are mandatory, not optional.
 - Do not delete or weaken a test only to make it pass. Fix the cause, or record a real decision in `docs/`.
 - All automated tests live under the root `tests/` directory.
 
+## Model providers and testing
+
+Never call real model-provider APIs for development, testing, or demos unless the operator gives explicit permission for that specific use.
+
+- Automated tests are self-contained. Backend tests drive the engine with local stub `pi` scripts and make no provider calls.
+- For end-to-end testing, run the coordinator with the local stub model:
+
+  ```text
+  make coordinator-stub
+  ```
+
+  The stub (`scripts/stub/pi`) replaces `pi` on the child `PATH`. The engine, persistence, events, work items, artifacts, and browser flow stay real; only model inference is replaced.
+- Real execution requires `DEVELOPMENT_MODE=true` and a real `pi` on `PATH`. Ask the operator before enabling it.
+- Keep the stub aligned with the engine's markers and event protocol when the adapter changes.
+
 ## Documentation style
 
 When editing files in `docs/`:

@@ -1,22 +1,23 @@
-.PHONY: help migrate test lint format api coordinator web web-install web-test web-typecheck web-build dev compose-up compose-down
+.PHONY: help migrate test lint format api coordinator coordinator-stub web web-install web-test web-typecheck web-build dev compose-up compose-down
 
 help:
 	@echo "Kallula development commands"
 	@echo ""
-	@echo "  make migrate        Apply database migrations"
-	@echo "  make test           Run backend tests"
-	@echo "  make lint           Run backend lint and format checks"
-	@echo "  make format         Format backend code"
-	@echo "  make api            Start the API"
-	@echo "  make coordinator    Start the coordinator"
-	@echo "  make web-install    Install frontend dependencies"
-	@echo "  make web            Start the frontend dev server"
-	@echo "  make web-test       Run frontend tests"
-	@echo "  make web-typecheck  Type-check the frontend"
-	@echo "  make web-build      Build the frontend"
-	@echo "  make dev            Start the full stack with Docker Compose"
-	@echo "  make compose-up     Start the Docker Compose stack"
-	@echo "  make compose-down   Stop the Docker Compose stack"
+	@echo "  make migrate           Apply database migrations"
+	@echo "  make test              Run backend tests"
+	@echo "  make lint              Run backend lint and format checks"
+	@echo "  make format            Format backend code"
+	@echo "  make api               Start the API"
+	@echo "  make coordinator       Start the coordinator"
+	@echo "  make coordinator-stub  Start the coordinator with the local stub model"
+	@echo "  make web-install       Install frontend dependencies"
+	@echo "  make web               Start the frontend dev server"
+	@echo "  make web-test          Run frontend tests"
+	@echo "  make web-typecheck     Type-check the frontend"
+	@echo "  make web-build         Build the frontend"
+	@echo "  make dev               Start the full stack with Docker Compose"
+	@echo "  make compose-up        Start the Docker Compose stack"
+	@echo "  make compose-down      Stop the Docker Compose stack"
 
 migrate:
 	uv run alembic upgrade head
@@ -37,6 +38,9 @@ api:
 
 coordinator:
 	uv run python -m coordinator
+
+coordinator-stub:
+	DEVELOPMENT_MODE=true PATH="$(CURDIR)/scripts/stub:$$PATH" uv run python -m coordinator
 
 web-install:
 	pnpm --dir apps/web install
