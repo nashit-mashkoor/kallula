@@ -177,6 +177,7 @@ async def drive_run(
             summary="Run is starting.",
         )
         attempt = await create_attempt(session, run)
+        attempt.worker_runtime_ref = f"pid:{os.getpid()}"
         run.active_attempt_id = attempt.id
         run.started_at = run.started_at or moment
         run.control_state = next_run_state(run.control_state, RunControlState.RUNNING)

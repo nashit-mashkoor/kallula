@@ -118,3 +118,12 @@ async def clear_expired(
     await session.delete(lease)
     await session.flush()
     return True
+
+
+async def force_release(session: AsyncSession, *, project_id: str) -> bool:
+    lease = await _lease(session, project_id)
+    if lease is None:
+        return False
+    await session.delete(lease)
+    await session.flush()
+    return True

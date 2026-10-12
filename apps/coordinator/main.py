@@ -13,6 +13,7 @@ from coordinator.loop import (
     default_holder_id,
     process_queued_runs,
 )
+from coordinator.reconcile import reconcile
 from coordinator.settings import CoordinatorSettings
 from observability.logging import configure_logging
 from persistence.db import check_database, create_db_engine, create_session_factory
@@ -105,6 +106,13 @@ async def run() -> None:
     active = ActiveRuns()
     tasks: list[asyncio.Task] = []
     if engine_factory is not None:
+        try:
+            async with factory() as session:
+                reconciled = await reconcile(session, engine_factory=engine_factory)
+                if reconciled:
+                    logger.info("reconciled runs", extra={"count": reconciled})
+        except Exception:
+            logger.exception("reconciliation failed")
         tasks.append(
             asyncio.create_task(
                 _drive_loop(factory, holder_id, engine_factory, active, stop)

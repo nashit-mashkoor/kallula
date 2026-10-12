@@ -229,6 +229,11 @@ def classify_outcome(
             "The engine recorded a pipeline failure in the project knowledge base.",
         )
     if state.checkpoint is None and not state.issues:
+        if returncode is None:
+            return (
+                EngineOutcome.FAILED,
+                "The engine exited before producing project state.",
+            )
         return (
             EngineOutcome.FAILED,
             f"The engine exited with status {returncode} before producing project state.",

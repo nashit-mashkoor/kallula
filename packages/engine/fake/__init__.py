@@ -39,6 +39,16 @@ class FakeEngine:
     def request_safe_stop(self) -> None:
         return
 
+    def inspect_result(self) -> EngineResult:
+        if self.scenario is FakeScenario.FAIL_DURING_EXECUTION:
+            return EngineResult(
+                outcome=EngineOutcome.FAILED,
+                failure_summary="Fake engine failed during execution.",
+            )
+        if self.scenario is FakeScenario.STOP_AT_SAFE_BOUNDARY:
+            return EngineResult(outcome=EngineOutcome.STOPPED_SAFE)
+        return EngineResult(outcome=EngineOutcome.COMPLETED_VERIFIED)
+
     async def run(self, request: EngineRunRequest, hooks: EngineHooks) -> EngineResult:
         if self.scenario is FakeScenario.FAIL_DURING_EXECUTION:
             return EngineResult(

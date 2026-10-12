@@ -62,6 +62,12 @@ class SiestaAdapter:
     def request_safe_stop(self) -> None:
         write_stop_marker(self._workspace_path)
 
+    def inspect_result(self) -> EngineResult:
+        outcome, summary = classify_outcome(
+            inspect_workspace(self._workspace_path), None
+        )
+        return EngineResult(outcome=outcome, failure_summary=summary)
+
     async def run(self, request: EngineRunRequest, hooks: EngineHooks) -> EngineResult:
         self._prepare_launch()
         env = build_child_env(
