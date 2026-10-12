@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from coordinator.active import ActiveRuns
 from coordinator.commands import process_commands
 from coordinator.engines import build_engine_factory, register_pinned_installation
+from coordinator.leases import LEASE_RENEW_INTERVAL_SECONDS, renew_active_leases
 from coordinator.loop import (
     POLL_INTERVAL_SECONDS,
     EngineFactory,
@@ -79,6 +80,20 @@ async def _command_loop(
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
+async def _lease_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    active: ActiveRuns,
+    stop: asyncio.Event,
+) -> None:
+    while not stop.is_set():
+        try:
+            async with session_factory() as session:
+                await renew_active_leases(session, active)
+        except Exception:
+            logger.exception("lease renewal failed")
+        await asyncio.sleep(LEASE_RENEW_INTERVAL_SECONDS)
+
+
 async def run() -> None:
     settings = CoordinatorSettings()
     configure_logging(settings.log_level)
@@ -119,6 +134,7 @@ async def run() -> None:
             )
         )
         tasks.append(asyncio.create_task(_command_loop(factory, active, stop)))
+        tasks.append(asyncio.create_task(_lease_loop(factory, active, stop)))
     logger.info("coordinator ready")
 
     try:

@@ -3,7 +3,7 @@ import asyncio
 from factories import static_factory
 from sqlalchemy import select
 
-from coordinator.active import ActiveRuns
+from coordinator.active import ActiveRun, ActiveRuns
 from coordinator.commands import process_commands
 from coordinator.loop import drive_run, process_queued_runs
 from domain.states import CommandState, RunControlState
@@ -149,7 +149,7 @@ def test_stop_signal_reaches_running_engine(tmp_path):
                 run_id = run.id
 
             stopper = StoppableEngine()
-            signal = asyncio.Event()
+            entry = ActiveRun()
             async with factory() as session:
                 run = (
                     await session.execute(select(Run).where(Run.id == run_id))
@@ -160,11 +160,11 @@ def test_stop_signal_reaches_running_engine(tmp_path):
                         run,
                         static_factory(stopper),
                         holder_id="test",
-                        stop_signal=signal,
+                        active=entry,
                     )
                 )
                 await asyncio.wait_for(stopper.started.wait(), timeout=5)
-                signal.set()
+                entry.signal.set()
                 await asyncio.wait_for(drive, timeout=10)
 
             assert stopper.stop_requested is True
@@ -189,8 +189,8 @@ def test_stop_does_not_override_completion(tmp_path):
                 await session.commit()
                 run_id = run.id
 
-            signal = asyncio.Event()
-            signal.set()
+            entry = ActiveRun()
+            entry.signal.set()
             async with factory() as session:
                 run = (
                     await session.execute(select(Run).where(Run.id == run_id))
@@ -200,7 +200,7 @@ def test_stop_does_not_override_completion(tmp_path):
                     run,
                     static_factory(CompletingEngine()),
                     holder_id="test",
-                    stop_signal=signal,
+                    active=entry,
                 )
 
             async with factory() as session:
@@ -239,7 +239,7 @@ def test_process_commands_signals_active_run(tmp_path):
                 run_id = run.id
 
             active = ActiveRuns()
-            signal = active.register(run_id)
+            entry = active.register(run_id)
             async with factory() as session:
                 applied = await process_commands(session, active=active)
                 assert applied == 1
@@ -252,7 +252,7 @@ def test_process_commands_signals_active_run(tmp_path):
                 ).scalar_one()
                 assert stored.state is CommandState.APPLIED
                 assert stored.applied_at is not None
-            assert signal.is_set()
+            assert entry.signal.is_set()
         finally:
             await engine.dispose()
 

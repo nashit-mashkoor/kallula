@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from coordinator.active import ActiveRuns
+from coordinator.active import ActiveRun, ActiveRuns
 from coordinator.sink import RunEventSink
 from domain.states import (
     AttemptState,
@@ -161,12 +161,17 @@ async def drive_run(
     *,
     holder_id: str,
     now: datetime | None = None,
-    stop_signal: asyncio.Event | None = None,
+    active: ActiveRun | None = None,
 ) -> None:
     moment = _naive_now(now)
+    stop_signal = active.signal if active is not None else None
     lease = await leases.acquire(
         session, project_id=run.project_id, holder_id=holder_id, run_id=run.id
     )
+    if active is not None:
+        active.project_id = run.project_id
+        active.holder_id = holder_id
+        active.lease_epoch = lease.lease_epoch
     try:
         run.control_state = next_run_state(run.control_state, RunControlState.STARTING)
         await append_event(
@@ -265,14 +270,18 @@ async def drive_run(
         run.version += 1
         run.updated_at = moment
         await session.flush()
-    finally:
-        await leases.release(
-            session,
-            project_id=run.project_id,
-            holder_id=holder_id,
-            lease_epoch=lease.lease_epoch,
-        )
         await session.commit()
+    finally:
+        try:
+            await leases.release(
+                session,
+                project_id=run.project_id,
+                holder_id=holder_id,
+                lease_epoch=lease.lease_epoch,
+            )
+            await session.commit()
+        except leases.LeaseConflictError:
+            await session.rollback()
 
 
 async def process_queued_runs(
@@ -298,7 +307,7 @@ async def process_queued_runs(
     for run in runs:
         if active is not None and active.is_active(run.id):
             continue
-        signal = active.register(run.id) if active is not None else None
+        entry = active.register(run.id) if active is not None else None
         try:
             await drive_run(
                 session,
@@ -306,7 +315,7 @@ async def process_queued_runs(
                 engine_factory,
                 holder_id=holder_id,
                 now=now,
-                stop_signal=signal,
+                active=entry,
             )
             processed += 1
         except leases.LeaseConflictError:

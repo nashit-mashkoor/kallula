@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from persistence.models import ProjectExecutionLease
@@ -22,9 +22,9 @@ async def _lease(
 ) -> ProjectExecutionLease | None:
     return (
         await session.execute(
-            select(ProjectExecutionLease).where(
-                ProjectExecutionLease.project_id == project_id
-            )
+            select(ProjectExecutionLease)
+            .where(ProjectExecutionLease.project_id == project_id)
+            .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
 
@@ -78,34 +78,36 @@ async def renew(
     duration: timedelta = LEASE_DURATION,
 ) -> ProjectExecutionLease:
     moment = _naive_utc(now)
+    result = await session.execute(
+        update(ProjectExecutionLease)
+        .where(
+            ProjectExecutionLease.project_id == project_id,
+            ProjectExecutionLease.holder_id == holder_id,
+            ProjectExecutionLease.lease_epoch == lease_epoch,
+            ProjectExecutionLease.expires_at > moment,
+        )
+        .values(renewed_at=moment, expires_at=moment + duration)
+    )
+    if result.rowcount == 0:
+        raise LeaseConflictError(project_id)
     lease = await _lease(session, project_id)
-    if (
-        lease is None
-        or lease.holder_id != holder_id
-        or lease.lease_epoch != lease_epoch
-    ):
+    if lease is None:
         raise LeaseConflictError(project_id)
-    if lease.expires_at <= moment:
-        raise LeaseConflictError(project_id)
-
-    lease.renewed_at = moment
-    lease.expires_at = moment + duration
-    await session.flush()
     return lease
 
 
 async def release(
     session: AsyncSession, *, project_id: str, holder_id: str, lease_epoch: int
 ) -> None:
-    lease = await _lease(session, project_id)
-    if (
-        lease is None
-        or lease.holder_id != holder_id
-        or lease.lease_epoch != lease_epoch
-    ):
+    result = await session.execute(
+        delete(ProjectExecutionLease).where(
+            ProjectExecutionLease.project_id == project_id,
+            ProjectExecutionLease.holder_id == holder_id,
+            ProjectExecutionLease.lease_epoch == lease_epoch,
+        )
+    )
+    if result.rowcount == 0:
         raise LeaseConflictError(project_id)
-    await session.delete(lease)
-    await session.flush()
 
 
 async def clear_expired(
