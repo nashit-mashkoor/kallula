@@ -256,11 +256,14 @@ Never run real model-provider execution for development, testing, or demos witho
 
 ## Pinned engine
 
-Siesta is vendored under `vendor/siesta` as a Git submodule. The reviewed revision is pinned to:
+Siesta is vendored under `vendor/siesta` as a Git submodule. It is pinned to the maintained fork:
 
 ```text
-jairorodriguezarias/siesta @ 20b149e0734b09730dfd22803d2695776fcf84b8
+nashit-mashkoor/siesta, branch kallula
+base revision: jairorodriguezarias/siesta @ 20b149e0734b09730dfd22803d2695776fcf84b8
 ```
+
+The `kallula` branch carries the adapted build that M4 needs (engine-side human-interaction hooks). The fork's `main` tracks the reviewed base revision. The submodule pins the exact adapted commit, so the Engine Installation identity includes the adaptation (ADR-011).
 
 Initialize it with:
 

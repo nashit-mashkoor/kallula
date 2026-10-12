@@ -10,6 +10,7 @@ Each decision gets one immutable ADR. To change a decision, add a new ADR that s
 | [ADR-007](./ADR-007-m3-siesta-adapter-at-process-boundary.md) | M3 Siesta adapter seam at the process boundary | Accepted |
 | [ADR-008](./ADR-008-development-mode-installation-registration.md) | Development-mode pinned installation registration | Accepted |
 | [ADR-009](./ADR-009-development-mode-engine-model-config.md) | Development-mode engine model configuration override | Accepted |
-| [ADR-010](./ADR-010-adapted-siesta-build-via-patch-series.md) | Adapted Siesta build via an in-repo patch series | Accepted |
+| [ADR-010](./ADR-010-adapted-siesta-build-via-patch-series.md) | Adapted Siesta build via an in-repo patch series | Superseded by ADR-011 |
+| [ADR-011](./ADR-011-adapted-siesta-build-on-a-maintained-fork.md) | Adapted Siesta build on a maintained fork | Accepted |
 
 The Implementation Plan section 36 lists candidate ADR topics (ADR-001 to ADR-005). Each is written when that decision is actually made.

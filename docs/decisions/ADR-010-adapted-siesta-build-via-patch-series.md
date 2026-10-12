@@ -1,6 +1,6 @@
 # ADR-010 — Adapted Siesta build via an in-repo patch series
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-011](./ADR-011-adapted-siesta-build-on-a-maintained-fork.md)
 **Date:** 2026-10-12
 
 ## Context
