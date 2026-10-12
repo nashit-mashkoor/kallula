@@ -4,9 +4,10 @@
 # Speaks the same markers the engine expects; keep it aligned with the
 # adapter when event or marker handling changes.
 prompt="$*"
+intent="$(printf '%s' "$prompt" | awk '/^HUMAN INTENT:/{found=1; next} found && /^[[:space:]]*$/ {exit} found {print}' | head -c 500)"
 case "$prompt" in
   *"spec-driven-development"*)
-    printf '# Spec\n\nA tiny todo CLI in Python.\n' ;;
+    printf '# Spec\n\n%s\n\nA small Python command-line application with pytest tests.\n' "${intent:-a small Python command-line tool}" ;;
   *"planning-and-task-breakdown"*)
     printf '# Issues\n\n## Issue #1: Add hello\nWrite hello.\n\n## Issue #2: Add bye\nWrite bye.\n' ;;
   *"factory-learner"*)
