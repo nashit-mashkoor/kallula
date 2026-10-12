@@ -117,7 +117,7 @@ def test_rollback_leaves_no_event_and_no_gap(tmp_path):
     asyncio.run(scenario())
 
 
-def test_append_preserves_payload_and_severity(tmp_path):
+def test_append_event_preserves_payload_and_severity(tmp_path):
     async def scenario():
         engine = await prepare(f"sqlite+aiosqlite:///{tmp_path / 'append.db'}")
         factory = create_session_factory(engine)
@@ -135,6 +135,51 @@ def test_append_preserves_payload_and_severity(tmp_path):
                 await session.commit()
                 assert event.payload_json == {"passed": 31, "failed": 0}
                 assert event.payload_version == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_append_event_survives_stale_run_object(tmp_path):
+    async def scenario():
+        engine = await prepare(f"sqlite+aiosqlite:///{tmp_path / 'append.db'}")
+        factory = create_session_factory(engine)
+        try:
+            async with factory() as session:
+                run = await seed_run(session)
+                await session.commit()
+                run_id = run.id
+
+            async with factory() as stale:
+                run = (
+                    await stale.execute(select(Run).where(Run.id == run_id))
+                ).scalar_one()
+                await stale.commit()
+                assert run.last_event_sequence == 0
+
+                async with factory() as other:
+                    other_run = (
+                        await other.execute(select(Run).where(Run.id == run_id))
+                    ).scalar_one()
+                    await append_event(
+                        other,
+                        other_run,
+                        event_type="RUN_STARTING",
+                        category="RUN",
+                        summary="Run is starting.",
+                    )
+                    await other.commit()
+
+                event = await append_event(
+                    stale,
+                    run,
+                    event_type="RUN_STARTED",
+                    category="RUN",
+                    summary="Run started.",
+                )
+                await stale.commit()
+                assert event.sequence == 2
         finally:
             await engine.dispose()
 

@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.states import EventSeverity, EventSource
@@ -27,7 +28,16 @@ async def append_event(
     artifact_ids: list[str] | None = None,
     occurred_at: datetime | None = None,
 ) -> Event:
-    sequence = run.last_event_sequence + 1
+    sequence = (
+        await session.execute(
+            update(Run)
+            .where(Run.id == run.id)
+            .values(last_event_sequence=Run.last_event_sequence + 1)
+            .returning(Run.last_event_sequence)
+            .execution_options(synchronize_session=False)
+        )
+    ).scalar_one()
+    run.last_event_sequence = sequence
     event = Event(
         run_id=run.id,
         sequence=sequence,

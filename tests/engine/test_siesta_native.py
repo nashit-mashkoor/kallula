@@ -123,7 +123,7 @@ def test_inspect_workspace_detects_stop_marker(tmp_path):
     assert inspect_workspace(workspace).stopped is True
 
 
-def test_inspect_workspace_detects_stop_blocker(tmp_path):
+def test_inspect_workspace_ignores_historical_stop_blocker(tmp_path):
     workspace = make_workspace(tmp_path)
     (workspace / "kb").mkdir()
     (workspace / "kb" / "graph.json").write_text(
@@ -132,7 +132,7 @@ def test_inspect_workspace_detects_stop_blocker(tmp_path):
         )
     )
 
-    assert inspect_workspace(workspace).stopped is True
+    assert inspect_workspace(workspace).stopped is False
 
 
 def test_classify_outcome_verified_completion():
@@ -228,6 +228,14 @@ def test_classify_outcome_crash_without_native_state():
     assert outcome is EngineOutcome.FAILED
     assert summary is not None
     assert "status 2" in summary
+
+
+def test_classify_outcome_clean_exit_without_state_is_not_success():
+    state = NativeState(None, (), None, False)
+
+    outcome, _ = classify_outcome(state, 0)
+
+    assert outcome is EngineOutcome.FAILED
 
 
 def test_discover_artifacts_maps_documented_patterns(tmp_path):

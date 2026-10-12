@@ -270,7 +270,9 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation), M1 (Project and Run skeleton), M2 (Durable Events and live updates), and M3 (real Siesta autonomous execution) are complete. M4 (durable human interaction) is next.
+M0 (Repository and Development Foundation), M1 (Project and Run skeleton), M2 (Durable Events and live updates), M3 (real Siesta autonomous execution), and M5 (safe stop, resume, and recovery) are complete. M4 (durable human interaction) is next.
+
+M5 shipped before M4: safe stop, resume, and recovery work against the pinned Siesta revision, while M4 needs the adapted Siesta build (engine-side human-interaction hooks). M4 remains next, and the Gate B review follows M4.
 
 ```text
 M0  Repository and development foundation   [complete]
@@ -287,11 +289,16 @@ Gate A review                               [passed]
  v
 M3  Real Siesta autonomous execution        [complete]
  |
- v
-M4  Durable human interaction               [next]
+ +-------------------------------+
+ |                               |
+ v                               v
+M5  Safe stop, resume, recovery  M4  Durable human interaction
+    [complete]                       [next]
+                                     |
+                                     v
+                                 Gate B review
+                                     [after M4]
 ```
-
-M4 and M5 add durable human interaction, safe stop, resume, and recovery on top of the real engine.
 
 The **Test & Compatibility Strategy** remains deferred until the implementation is concrete enough to define executable release gates. It becomes required during M12 before release.
 
@@ -299,25 +306,27 @@ The **Test & Compatibility Strategy** remains deferred until the implementation 
 
 Implementation tasks are tracked as GitHub issues in [`nashit-mashkoor/kallula`](https://github.com/nashit-mashkoor/kallula/issues).
 
-Each milestone uses one issue label. M0, M1, M2, and M3 are complete:
+Each milestone uses one issue label. M0, M1, M2, M3, and M5 are complete:
 
 ```text
 label: m0   Repository and Development Foundation   [complete]
 label: m1   Project and Run Skeleton                [complete]
 label: m2   Durable Events and Live Updates         [complete]
 label: m3   Real Siesta Autonomous Execution        [complete]
+label: m4   Durable Human Interaction               [next]
+label: m5   Safe Stop, Resume, and Recovery         [complete]
 ```
 
 List milestone work:
 
 ```text
-gh-axi issue list --label m3
+gh-axi issue list --label m5
 ```
 
 Or open:
 
 ```text
-https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am3
+https://github.com/nashit-mashkoor/kallula/issues?q=label%3Am5
 ```
 
 The issues are ordered by implementation dependency. Create the next milestone label when the current milestone passes its Definition of Done.

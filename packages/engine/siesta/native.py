@@ -1,6 +1,8 @@
 import json
 import mimetypes
+import os
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,7 +14,6 @@ ISSUE_HEADER = re.compile(
 )
 ISSUE_NUMBER = re.compile(r"[Ii]ssue #(\d+)")
 STOP_MARKER = "stop.md"
-STOP_BLOCKER = "Pipeline halted by stop.md"
 
 PHASE_STAGES = {
     "phase-0": StageCategory.REQUIREMENTS,
@@ -123,7 +124,7 @@ def inspect_workspace(workspace: Path) -> NativeState:
         checkpoint = checkpoint.strip() or None
     discovered = _discovered_issues(workspace / "issues.md")
     started = _numbered_evidence(workspace, "pre_issue_*.json")
-    completed, blockers, failed, halted = _read_ledger(workspace / "kb" / "graph.json")
+    completed, blockers, failed = _read_ledger(workspace / "kb" / "graph.json")
     issues = tuple(
         NativeIssue(
             number=number,
@@ -138,7 +139,7 @@ def inspect_workspace(workspace: Path) -> NativeState:
     verdict = _read_text(workspace / "verify_verdict.txt")
     if verdict is not None:
         verdict = verdict.strip() or None
-    stopped = (workspace / STOP_MARKER).is_file() or halted
+    stopped = (workspace / STOP_MARKER).is_file()
     return NativeState(
         checkpoint=checkpoint,
         issues=issues,
@@ -280,19 +281,59 @@ def write_stop_marker(workspace: Path) -> None:
 
 
 def clear_stop_marker(workspace: Path) -> None:
-    marker = Path(workspace) / STOP_MARKER
-    try:
-        marker.unlink()
-    except FileNotFoundError:
+    workspace = Path(workspace)
+    marker = workspace / STOP_MARKER
+    if not marker.exists():
         return
+    tracked = _is_tracked(workspace, STOP_MARKER)
+    marker.unlink()
+    if tracked:
+        _commit_marker_removal(workspace)
+
+
+def _is_tracked(workspace: Path, name: str) -> bool:
+    result = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", name],
+        cwd=workspace,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _commit_marker_removal(workspace: Path) -> None:
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Kallula",
+        "GIT_AUTHOR_EMAIL": "kallula@localhost",
+        "GIT_COMMITTER_NAME": "Kallula",
+        "GIT_COMMITTER_EMAIL": "kallula@localhost",
+    }
+    subprocess.run(
+        ["git", "add", "--", STOP_MARKER],
+        cwd=workspace,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Clear safe-stop marker after safe stop"],
+        cwd=workspace,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
 
 
 def _read_ledger(
     path: Path,
-) -> tuple[set[int], dict[int, str], bool, bool]:
+) -> tuple[set[int], dict[int, str], bool]:
     raw = _read_text(path)
     if raw is None or not raw.strip():
-        return set(), {}, False, False
+        return set(), {}, False
     try:
         ledger = json.loads(raw)
     except ValueError as exc:
@@ -303,7 +344,6 @@ def _read_ledger(
     completed: set[int] = set()
     blockers: dict[int, str] = {}
     failed = False
-    halted = False
     for node in ledger.get("nodes", []):
         node_type = node.get("type")
         summary = str(node.get("summary", ""))
@@ -317,9 +357,7 @@ def _read_ledger(
                 blockers[int(match.group(1))] = summary
             elif summary == "Pipeline failed":
                 failed = True
-            elif summary == STOP_BLOCKER:
-                halted = True
-    return completed, blockers, failed, halted
+    return completed, blockers, failed
 
 
 def media_type_for(path: Path) -> str | None:

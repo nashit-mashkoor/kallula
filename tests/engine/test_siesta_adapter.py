@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 
 import pytest
 
@@ -86,3 +87,52 @@ def test_launch_rejects_malformed_native_state(tmp_path):
         adapter._prepare_launch()
 
     assert excinfo.value.code == "SIESTA_NATIVE_STATE_INVALID"
+
+
+def test_launch_clears_tracked_stop_marker_and_commits(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    env = {
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.invalid",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.invalid",
+    }
+    subprocess.run(["git", "init", "-b", "main"], cwd=workspace, check=True, env=env)
+    (workspace / "stop.md").write_text("old stop")
+    subprocess.run(["git", "add", "-A"], cwd=workspace, check=True, env=env)
+    subprocess.run(["git", "commit", "-m", "sweep"], cwd=workspace, check=True, env=env)
+    adapter = SiestaAdapter(
+        source_root=tmp_path / "source",
+        runtime_path=tmp_path / "runtime",
+        workspace_path=workspace,
+        objective="build it",
+    )
+
+    adapter._prepare_launch()
+
+    assert not (workspace / "stop.md").exists()
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=workspace,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert status.stdout.strip() == ""
+
+
+def test_launch_clears_untracked_stop_marker_without_commit(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "stop.md").write_text("old stop")
+    adapter = SiestaAdapter(
+        source_root=tmp_path / "source",
+        runtime_path=tmp_path / "runtime",
+        workspace_path=workspace,
+        objective="build it",
+    )
+
+    adapter._prepare_launch()
+
+    assert not (workspace / "stop.md").exists()
