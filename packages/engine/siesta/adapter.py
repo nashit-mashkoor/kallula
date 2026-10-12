@@ -25,12 +25,14 @@ from engine.siesta.native import (
     NativeArtifact,
     NativeState,
     classify_outcome,
+    clear_stop_marker,
     discover_artifacts,
     inspect_workspace,
     make_stage,
     media_type_for,
     normalize_idea,
     project_slug,
+    write_stop_marker,
 )
 
 PHASE_SEQUENCE = tuple(PHASE_STAGES)
@@ -56,6 +58,9 @@ class SiestaAdapter:
 
     def describe(self) -> EngineDescriptor:
         return inspect_engine(self._source_root)
+
+    def request_safe_stop(self) -> None:
+        write_stop_marker(self._workspace_path)
 
     async def run(self, request: EngineRunRequest, hooks: EngineHooks) -> EngineResult:
         self._prepare_launch()
@@ -115,6 +120,7 @@ class SiestaAdapter:
 
     def _prepare_launch(self) -> None:
         self._check_objective_conflict()
+        clear_stop_marker(self._workspace_path)
         workspace = self._workspace_path.resolve()
         projects_dir = self._runtime_path / "projects"
         projects_dir.mkdir(parents=True, exist_ok=True)

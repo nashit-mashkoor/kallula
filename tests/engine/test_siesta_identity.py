@@ -17,12 +17,12 @@ def test_inspect_engine_reports_pinned_revision():
     assert descriptor.identity.revision == "20b149e0734b09730dfd22803d2695776fcf84b8"
     assert descriptor.identity.adapter_version == ADAPTER_VERSION
     assert descriptor.capabilities.autonomous_defaults is True
+    assert descriptor.capabilities.safe_stop is True
     assert descriptor.capabilities.work_items is True
     assert descriptor.capabilities.review is True
     assert descriptor.capabilities.verification is True
     assert descriptor.capabilities.learning is True
     assert descriptor.capabilities.human_requirements is False
-    assert descriptor.capabilities.safe_stop is False
     assert descriptor.capabilities.resume is False
 
 
@@ -33,7 +33,7 @@ def test_capability_manifest_is_honest_for_this_milestone():
         "human_requirements": False,
         "autonomous_defaults": True,
     }
-    assert manifest["run_control"] == {"safe_stop": False, "resume": False}
+    assert manifest["run_control"] == {"safe_stop": True, "resume": False}
     assert manifest["native_state_format_version"] == 1
     assert "VERIFICATION_EVIDENCE" in manifest["artifacts"]
 

@@ -116,6 +116,25 @@ def test_inspect_workspace_without_project_state(tmp_path):
     assert state == NativeState(None, (), None, False)
 
 
+def test_inspect_workspace_detects_stop_marker(tmp_path):
+    workspace = make_workspace(tmp_path)
+    (workspace / "stop.md").write_text("stop")
+
+    assert inspect_workspace(workspace).stopped is True
+
+
+def test_inspect_workspace_detects_stop_blocker(tmp_path):
+    workspace = make_workspace(tmp_path)
+    (workspace / "kb").mkdir()
+    (workspace / "kb" / "graph.json").write_text(
+        json.dumps(
+            {"nodes": [{"type": "blocker", "summary": "Pipeline halted by stop.md"}]}
+        )
+    )
+
+    assert inspect_workspace(workspace).stopped is True
+
+
 def test_classify_outcome_verified_completion():
     state = NativeState(
         "complete",
@@ -155,6 +174,50 @@ def test_classify_outcome_pipeline_failure():
 
     assert outcome is EngineOutcome.FAILED
     assert summary
+
+
+def test_classify_outcome_safe_stop():
+    state = NativeState(
+        "phase-3",
+        (make_issue(1, started=True, completed=True),),
+        None,
+        False,
+        True,
+    )
+
+    outcome, summary = classify_outcome(state, 0)
+
+    assert outcome is EngineOutcome.STOPPED_SAFE
+    assert summary is None
+
+
+def test_classify_outcome_safe_stop_with_blocked_work():
+    state = NativeState(
+        "phase-2",
+        (make_issue(1, started=True, blocked=True, blocker="Issue #1 blocked"),),
+        None,
+        False,
+        True,
+    )
+
+    outcome, _ = classify_outcome(state, 1)
+
+    assert outcome is EngineOutcome.STOPPED_SAFE
+
+
+def test_classify_outcome_stop_does_not_override_verified_completion():
+    state = NativeState(
+        "complete",
+        (make_issue(1, started=True, completed=True),),
+        "VERIFY_PASSED",
+        False,
+        True,
+    )
+
+    outcome, summary = classify_outcome(state, 0)
+
+    assert outcome is EngineOutcome.COMPLETED_VERIFIED
+    assert summary is None
 
 
 def test_classify_outcome_crash_without_native_state():

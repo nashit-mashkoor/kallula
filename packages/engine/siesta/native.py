@@ -11,6 +11,8 @@ ISSUE_HEADER = re.compile(
     r"^##[ \t]+Issue[ \t]+#(\d+)[ \t]*:?[ \t]*(.*)$", re.MULTILINE
 )
 ISSUE_NUMBER = re.compile(r"[Ii]ssue #(\d+)")
+STOP_MARKER = "stop.md"
+STOP_BLOCKER = "Pipeline halted by stop.md"
 
 PHASE_STAGES = {
     "phase-0": StageCategory.REQUIREMENTS,
@@ -86,6 +88,7 @@ class NativeState:
     issues: tuple[NativeIssue, ...]
     verdict: str | None
     failed: bool
+    stopped: bool = False
 
 
 def make_stage(category: StageCategory, native_id: str | None = None) -> EngineStage:
@@ -120,7 +123,7 @@ def inspect_workspace(workspace: Path) -> NativeState:
         checkpoint = checkpoint.strip() or None
     discovered = _discovered_issues(workspace / "issues.md")
     started = _numbered_evidence(workspace, "pre_issue_*.json")
-    completed, blockers, failed = _read_ledger(workspace / "kb" / "graph.json")
+    completed, blockers, failed, halted = _read_ledger(workspace / "kb" / "graph.json")
     issues = tuple(
         NativeIssue(
             number=number,
@@ -135,11 +138,13 @@ def inspect_workspace(workspace: Path) -> NativeState:
     verdict = _read_text(workspace / "verify_verdict.txt")
     if verdict is not None:
         verdict = verdict.strip() or None
+    stopped = (workspace / STOP_MARKER).is_file() or halted
     return NativeState(
         checkpoint=checkpoint,
         issues=issues,
         verdict=verdict,
         failed=failed,
+        stopped=stopped,
     )
 
 
@@ -204,6 +209,8 @@ def classify_outcome(
     )
     if verified:
         return EngineOutcome.COMPLETED_VERIFIED, None
+    if state.stopped:
+        return EngineOutcome.STOPPED_SAFE, None
     details = []
     if state.verdict is not None:
         details.append(f"verdict {state.verdict}")
@@ -261,12 +268,26 @@ def _numbered_evidence(workspace: Path, pattern: str) -> set[int]:
     return numbers
 
 
+def write_stop_marker(workspace: Path) -> None:
+    marker = Path(workspace) / STOP_MARKER
+    if not marker.exists():
+        marker.write_text("Safe stop requested by Kallula.\n")
+
+
+def clear_stop_marker(workspace: Path) -> None:
+    marker = Path(workspace) / STOP_MARKER
+    try:
+        marker.unlink()
+    except FileNotFoundError:
+        return
+
+
 def _read_ledger(
     path: Path,
-) -> tuple[set[int], dict[int, str], bool]:
+) -> tuple[set[int], dict[int, str], bool, bool]:
     raw = _read_text(path)
     if raw is None or not raw.strip():
-        return set(), {}, False
+        return set(), {}, False, False
     try:
         ledger = json.loads(raw)
     except ValueError as exc:
@@ -277,6 +298,7 @@ def _read_ledger(
     completed: set[int] = set()
     blockers: dict[int, str] = {}
     failed = False
+    halted = False
     for node in ledger.get("nodes", []):
         node_type = node.get("type")
         summary = str(node.get("summary", ""))
@@ -290,7 +312,9 @@ def _read_ledger(
                 blockers[int(match.group(1))] = summary
             elif summary == "Pipeline failed":
                 failed = True
-    return completed, blockers, failed
+            elif summary == STOP_BLOCKER:
+                halted = True
+    return completed, blockers, failed, halted
 
 
 def media_type_for(path: Path) -> str | None:

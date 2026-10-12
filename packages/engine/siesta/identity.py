@@ -18,6 +18,7 @@ def inspect_engine(source_root: Path) -> EngineDescriptor:
         ),
         capabilities=EngineCapabilities(
             autonomous_defaults=True,
+            safe_stop=True,
             work_items=True,
             review=True,
             verification=True,
@@ -34,7 +35,7 @@ def capability_manifest() -> dict:
             "autonomous_defaults": True,
         },
         "run_control": {
-            "safe_stop": False,
+            "safe_stop": True,
             "resume": False,
         },
         "work_items": True,
