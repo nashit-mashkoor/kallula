@@ -11,6 +11,7 @@ from domain.states import (
     ArtifactStorageKind,
     CompatibilityStatus,
     EngineInstallationStatus,
+    RunControlState,
     WorkItemState,
     WorkspaceStatus,
 )
@@ -179,6 +180,26 @@ async def _seed_artifact(
 
 def seed_artifact(database_url: str, **kwargs) -> str:
     return asyncio.run(_seed_artifact(database_url, **kwargs))
+
+
+async def _set_run_state(
+    database_url: str, run_id: str, state: RunControlState
+) -> None:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            run = (
+                await session.execute(select(Run).where(Run.id == run_id))
+            ).scalar_one()
+            run.control_state = state
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
+def set_run_state(database_url: str, run_id: str, state: RunControlState) -> None:
+    asyncio.run(_set_run_state(database_url, run_id, state))
 
 
 async def _seed_command(database_url: str) -> str:
