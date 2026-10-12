@@ -65,6 +65,11 @@ async def register(
         adapter_version=adapter_version,
     )
     if existing is not None:
+        existing.compatibility_launch = compatibility_launch
+        existing.compatibility_state_format = compatibility_state_format
+        existing.compatibility_resume = compatibility_resume
+        existing.capability_manifest_json = capability_manifest
+        await session.flush()
         return existing
     if default_for_new_runs:
         current_defaults = (

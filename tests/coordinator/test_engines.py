@@ -120,10 +120,43 @@ def test_register_pinned_installation_is_idempotent(tmp_path):
                 second = await register_pinned_installation(session, settings)
                 await session.commit()
                 assert second.id == first_id
+                assert second.compatibility_resume is CompatibilityStatus.SUPPORTED
                 stored = (
                     (await session.execute(select(EngineInstallation))).scalars().all()
                 )
                 assert len(stored) == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_register_refreshes_compatibility_on_reregistration(tmp_path):
+    async def scenario():
+        database_url = f"sqlite+aiosqlite:///{tmp_path / 'refresh.db'}"
+        engine = create_db_engine(database_url)
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        factory = create_session_factory(engine)
+        settings = make_settings(tmp_path)
+        try:
+            async with factory() as session:
+                await register_pinned_installation(session, settings)
+                installation = (
+                    (await session.execute(select(EngineInstallation))).scalars().one()
+                )
+                installation.compatibility_resume = CompatibilityStatus.UNKNOWN
+                installation.compatibility_state_format = CompatibilityStatus.UNKNOWN
+                await session.commit()
+
+            async with factory() as session:
+                refreshed = await register_pinned_installation(session, settings)
+                await session.commit()
+                assert refreshed.compatibility_resume is CompatibilityStatus.SUPPORTED
+                assert (
+                    refreshed.compatibility_state_format
+                    is CompatibilityStatus.SUPPORTED
+                )
         finally:
             await engine.dispose()
 
