@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from coordinator.loop import EngineFactory
 from coordinator.settings import CoordinatorSettings
-from domain.states import EngineRuntimeState
+from domain.states import CompatibilityStatus, EngineRuntimeState
 from engine.base import Engine, EngineError
 from engine.siesta import SiestaAdapter, capability_manifest, inspect_engine
 from persistence import installations as installations_repo
@@ -124,4 +124,7 @@ async def register_pinned_installation(
         adapter_version=descriptor.identity.adapter_version,
         installation_digest=digest,
         capability_manifest=manifest,
+        compatibility_launch=CompatibilityStatus.SUPPORTED,
+        compatibility_state_format=CompatibilityStatus.SUPPORTED,
+        compatibility_resume=CompatibilityStatus.SUPPORTED,
     )

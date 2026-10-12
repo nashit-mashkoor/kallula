@@ -121,6 +121,7 @@ class SiestaAdapter:
     def _prepare_launch(self) -> None:
         self._check_objective_conflict()
         clear_stop_marker(self._workspace_path)
+        inspect_workspace(self._workspace_path)
         workspace = self._workspace_path.resolve()
         projects_dir = self._runtime_path / "projects"
         projects_dir.mkdir(parents=True, exist_ok=True)

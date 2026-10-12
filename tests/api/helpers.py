@@ -11,6 +11,7 @@ from domain.states import (
     ArtifactStorageKind,
     CompatibilityStatus,
     EngineInstallationStatus,
+    Recoverability,
     RunControlState,
     WorkItemState,
     WorkspaceStatus,
@@ -64,6 +65,8 @@ async def _seed_installation(
     *,
     status: EngineInstallationStatus = EngineInstallationStatus.SUPPORTED,
     compatibility_launch: CompatibilityStatus = CompatibilityStatus.SUPPORTED,
+    compatibility_state_format: CompatibilityStatus = CompatibilityStatus.SUPPORTED,
+    compatibility_resume: CompatibilityStatus = CompatibilityStatus.SUPPORTED,
     default_for_new_runs: bool = True,
 ) -> str:
     engine = create_db_engine(database_url)
@@ -78,6 +81,8 @@ async def _seed_installation(
                 status=status,
                 default_for_new_runs=default_for_new_runs,
                 compatibility_launch=compatibility_launch,
+                compatibility_state_format=compatibility_state_format,
+                compatibility_resume=compatibility_resume,
                 capability_manifest_json={
                     "schema_version": 1,
                     "work_items": True,
@@ -183,7 +188,11 @@ def seed_artifact(database_url: str, **kwargs) -> str:
 
 
 async def _set_run_state(
-    database_url: str, run_id: str, state: RunControlState
+    database_url: str,
+    run_id: str,
+    state: RunControlState,
+    *,
+    recoverability: Recoverability | None = None,
 ) -> None:
     engine = create_db_engine(database_url)
     factory = create_session_factory(engine)
@@ -193,13 +202,22 @@ async def _set_run_state(
                 await session.execute(select(Run).where(Run.id == run_id))
             ).scalar_one()
             run.control_state = state
+            run.recoverability = recoverability
             await session.commit()
     finally:
         await engine.dispose()
 
 
-def set_run_state(database_url: str, run_id: str, state: RunControlState) -> None:
-    asyncio.run(_set_run_state(database_url, run_id, state))
+def set_run_state(
+    database_url: str,
+    run_id: str,
+    state: RunControlState,
+    *,
+    recoverability: Recoverability | None = None,
+) -> None:
+    asyncio.run(
+        _set_run_state(database_url, run_id, state, recoverability=recoverability)
+    )
 
 
 async def _seed_command(database_url: str) -> str:

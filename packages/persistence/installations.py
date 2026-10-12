@@ -55,6 +55,8 @@ async def register(
     status: EngineInstallationStatus = EngineInstallationStatus.SUPPORTED,
     default_for_new_runs: bool = True,
     compatibility_launch: CompatibilityStatus = CompatibilityStatus.SUPPORTED,
+    compatibility_state_format: CompatibilityStatus = CompatibilityStatus.UNKNOWN,
+    compatibility_resume: CompatibilityStatus = CompatibilityStatus.UNKNOWN,
 ) -> EngineInstallation:
     existing = await find_by_identity(
         session,
@@ -86,6 +88,8 @@ async def register(
         status=status,
         default_for_new_runs=default_for_new_runs,
         compatibility_launch=compatibility_launch,
+        compatibility_state_format=compatibility_state_format,
+        compatibility_resume=compatibility_resume,
         capability_manifest_json=capability_manifest,
     )
     session.add(installation)

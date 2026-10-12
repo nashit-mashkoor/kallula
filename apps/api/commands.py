@@ -12,7 +12,7 @@ from api.dependencies import get_principal_id, get_session
 from api.idempotency import IdempotencyConflictError
 from api.principals import get_or_create_dev_principal
 from api.problems import problem_response
-from api.runs import owned_run
+from api.runs import owned_run, resume_assessment
 from domain.states import CommandState, EventSource, RunControlState
 from domain.transitions import next_run_state
 from persistence.events import append_event
@@ -23,6 +23,10 @@ router = APIRouter(tags=["commands"])
 
 class StopRequest(BaseModel):
     mode: Literal["SAFE"] = "SAFE"
+
+
+class ResumeRequest(BaseModel):
+    reason: str = "USER_REQUEST"
 
 
 def command_response(command: Command) -> dict:
@@ -146,6 +150,109 @@ async def request_safe_stop(
         request_json=body,
         request_hash=hash_value,
         idempotency_key=idempotency_key,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    session.add(command)
+    await session.flush()
+    response_body = command_response(command)
+    await idempotency.store(
+        session,
+        principal_id=principal_id,
+        method="POST",
+        canonical_path=canonical_path,
+        idempotency_key=idempotency_key,
+        request_hash_value=hash_value,
+        status=202,
+        resource_ref=command.id,
+        snapshot=response_body,
+    )
+    await session.commit()
+    return JSONResponse(status_code=202, content=response_body)
+
+
+@router.post("/runs/{run_id}/commands/resume", status_code=202)
+async def resume_run(
+    run_id: str,
+    payload: ResumeRequest,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    principal_id: Annotated[str, Depends(get_principal_id)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    if idempotency_key is None:
+        return problem_response(
+            request,
+            400,
+            title="Bad Request",
+            detail="Idempotency-Key header is required.",
+            code="IDEMPOTENCY_KEY_REQUIRED",
+        )
+    run = await owned_run(session, principal_id, run_id)
+    if run is None:
+        return problem_response(
+            request, 404, title="Not Found", detail="Run not found."
+        )
+
+    canonical_path = f"/api/v1/runs/{run_id}/commands/resume"
+    body = payload.model_dump()
+    hash_value = idempotency.request_hash(body)
+    try:
+        stored = await idempotency.replay(
+            session,
+            principal_id=principal_id,
+            method="POST",
+            canonical_path=canonical_path,
+            idempotency_key=idempotency_key,
+            request_hash_value=hash_value,
+        )
+    except IdempotencyConflictError:
+        return problem_response(
+            request,
+            409,
+            title="Conflict",
+            detail="Idempotency-Key was reused with a different request.",
+            code="IDEMPOTENCY_KEY_REUSED",
+        )
+    if stored is not None:
+        return JSONResponse(status_code=stored.status, content=stored.snapshot or {})
+
+    allowed, reason, _ = await resume_assessment(session, run)
+    if not allowed:
+        return problem_response(
+            request,
+            409,
+            title="Conflict",
+            detail=reason,
+            code="RESUME_INCOMPATIBLE",
+        )
+
+    principal = await get_or_create_dev_principal(session, request.app.state.settings)
+    moment = datetime.now(UTC)
+    run.control_state = next_run_state(run.control_state, RunControlState.QUEUED)
+    run.failure_class = None
+    run.failure_code = None
+    run.failure_summary = None
+    run.recoverability = None
+    run.version += 1
+    run.updated_at = moment
+    await append_event(
+        session,
+        run,
+        event_type="RUN_QUEUED",
+        category="RUN",
+        summary="Run queued for resume.",
+        source=EventSource.CONTROL_PLANE,
+    )
+    command = Command(
+        actor_principal_id=principal.id,
+        command_type="RESUME_RUN",
+        target_type="RUN",
+        target_id=run.id,
+        state=CommandState.APPLIED,
+        request_json=body,
+        request_hash=hash_value,
+        idempotency_key=idempotency_key,
+        applied_at=moment,
         request_id=getattr(request.state, "request_id", None),
     )
     session.add(command)

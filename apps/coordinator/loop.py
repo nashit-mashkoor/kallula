@@ -67,6 +67,7 @@ async def _finish_failed(
     failure_class: str,
     failure_code: str,
     failure_summary: str,
+    recoverability: Recoverability = Recoverability.UNKNOWN,
 ) -> None:
     attempt.state = next_attempt_state(attempt.state, AttemptState.EXITED)
     attempt.ended_at = moment
@@ -76,7 +77,7 @@ async def _finish_failed(
     run.failure_class = failure_class
     run.failure_code = failure_code
     run.failure_summary = failure_summary
-    run.recoverability = Recoverability.UNKNOWN
+    run.recoverability = recoverability
     await append_event(
         session,
         run,
@@ -244,6 +245,11 @@ async def drive_run(
                 await _finish_stopped(session, run, attempt, moment)
             else:
                 failure_code, failure_summary = _failure_details(result)
+                recoverability = (
+                    Recoverability.RESUMABLE
+                    if failure_code == "ENGINE_UNVERIFIED"
+                    else Recoverability.UNKNOWN
+                )
                 await _finish_failed(
                     session,
                     run,
@@ -253,6 +259,7 @@ async def drive_run(
                     failure_class="ENGINE_FAILURE",
                     failure_code=failure_code,
                     failure_summary=failure_summary,
+                    recoverability=recoverability,
                 )
         run.version += 1
         run.updated_at = moment

@@ -14,7 +14,14 @@ from api.idempotency import IdempotencyConflictError
 from api.installations import installation_response
 from api.problems import problem_response
 from api.projects import etag, owned_project
-from domain.states import EventSource, WorkItemState
+from domain.states import (
+    CompatibilityStatus,
+    EventSource,
+    Recoverability,
+    RunControlState,
+    WorkItemState,
+    WorkspaceStatus,
+)
 from persistence import installations
 from persistence.events import append_event
 from persistence.models import (
@@ -23,6 +30,7 @@ from persistence.models import (
     Run,
     RunConfigSnapshot,
     WorkItem,
+    Workspace,
 )
 
 router = APIRouter(tags=["runs"])
@@ -37,6 +45,22 @@ class RunCreate(BaseModel):
 def content_hash(values: dict) -> str:
     encoded = json.dumps(values, sort_keys=True, default=str).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def recovery_state(run: Run) -> dict:
+    if run.control_state is RunControlState.STOPPED:
+        return {"resume_allowed": True, "reason": None}
+    if run.control_state is RunControlState.FAILED:
+        if run.recoverability is Recoverability.RESUMABLE:
+            return {"resume_allowed": True, "reason": None}
+        return {
+            "resume_allowed": False,
+            "reason": "This failure is not automatically resumable.",
+        }
+    return {
+        "resume_allowed": False,
+        "reason": "Only stopped or failed runs can resume.",
+    }
 
 
 def run_response(run: Run, work_item_summary: dict | None = None) -> dict:
@@ -73,7 +97,7 @@ def run_response(run: Run, work_item_summary: dict | None = None) -> dict:
         "pending_interaction_id": run.pending_interaction_id,
         "last_event_sequence": run.last_event_sequence,
         "last_verified_state_id": run.last_verified_state_id,
-        "recovery": {"resume_allowed": False, "reason": None},
+        "recovery": recovery_state(run),
         "failure": failure,
         "created_at": run.created_at.isoformat(),
         "started_at": run.started_at.isoformat() if run.started_at else None,
@@ -81,6 +105,55 @@ def run_response(run: Run, work_item_summary: dict | None = None) -> dict:
         "updated_at": run.updated_at.isoformat(),
         "version": run.version,
     }
+
+
+async def resume_assessment(session: AsyncSession, run: Run) -> tuple[bool, str, dict]:
+    installation = None
+    if run.engine_installation_id is not None:
+        installation = (
+            await session.execute(
+                select(EngineInstallation).where(
+                    EngineInstallation.id == run.engine_installation_id
+                )
+            )
+        ).scalar_one_or_none()
+    workspace = (
+        await session.execute(
+            select(Workspace).where(Workspace.project_id == run.project_id)
+        )
+    ).scalar_one_or_none()
+    details = {
+        "engine_installation_id": run.engine_installation_id,
+        "engine_installation": (
+            installation_response(installation) if installation else None
+        ),
+        "workspace": (
+            {"status": workspace.status.value} if workspace is not None else None
+        ),
+    }
+    if not recovery_state(run)["resume_allowed"]:
+        return False, recovery_state(run)["reason"], details
+    if installation is None:
+        return (
+            False,
+            "The pinned engine installation is unavailable.",
+            details,
+        )
+    if not installations.launch_compatible(installation):
+        return (
+            False,
+            "The pinned engine installation is not launch-compatible.",
+            details,
+        )
+    if installation.compatibility_resume is not CompatibilityStatus.SUPPORTED:
+        return (
+            False,
+            "The pinned engine installation cannot resume this state.",
+            details,
+        )
+    if workspace is None or workspace.status is not WorkspaceStatus.READY:
+        return False, "The project workspace is not ready.", details
+    return True, "Resume is available.", details
 
 
 async def work_item_summaries(
@@ -348,3 +421,26 @@ async def get_run_configuration(
             )
         ).scalar_one_or_none()
     return config_response(snapshot, installation)
+
+
+@router.get("/runs/{run_id}/resume-compatibility")
+async def get_resume_compatibility(
+    run_id: str,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    principal_id: Annotated[str, Depends(get_principal_id)],
+):
+    run = await owned_run(session, principal_id, run_id)
+    if run is None:
+        return problem_response(
+            request, 404, title="Not Found", detail="Run not found."
+        )
+    allowed, reason, details = await resume_assessment(session, run)
+    return {
+        "run_id": run.id,
+        "control_state": run.control_state.value,
+        **details,
+        "status": "SUPPORTED" if allowed else "UNSUPPORTED",
+        "reason": reason,
+        "allowed_action": "RESUME" if allowed else None,
+    }

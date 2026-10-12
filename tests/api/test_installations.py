@@ -16,8 +16,8 @@ def test_list_engine_installations(client):
     assert item["default_for_new_runs"] is True
     assert item["compatibility"] == {
         "launch": "SUPPORTED",
-        "state_format": "UNKNOWN",
-        "resume": "UNKNOWN",
+        "state_format": "SUPPORTED",
+        "resume": "SUPPORTED",
         "security": "UNKNOWN",
         "runtime": "UNKNOWN",
     }

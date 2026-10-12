@@ -68,3 +68,21 @@ def test_launch_clears_stale_stop_marker(tmp_path):
 
     assert not (workspace / "stop.md").exists()
     assert (tmp_path / "runtime" / "projects" / "build-it").is_symlink()
+
+
+def test_launch_rejects_malformed_native_state(tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "kb").mkdir()
+    (workspace / "kb" / "graph.json").write_text("{not json")
+    adapter = SiestaAdapter(
+        source_root=tmp_path / "source",
+        runtime_path=tmp_path / "runtime",
+        workspace_path=workspace,
+        objective="build it",
+    )
+
+    with pytest.raises(SiestaAdapterError) as excinfo:
+        adapter._prepare_launch()
+
+    assert excinfo.value.code == "SIESTA_NATIVE_STATE_INVALID"

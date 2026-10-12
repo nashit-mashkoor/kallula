@@ -208,7 +208,7 @@ def test_unverified_outcome_marks_run_failed(tmp_path):
                 assert run.failure_class == "ENGINE_FAILURE"
                 assert run.failure_code == "ENGINE_UNVERIFIED"
                 assert run.failure_summary == "Verification did not pass."
-                assert run.recoverability is Recoverability.UNKNOWN
+                assert run.recoverability is Recoverability.RESUMABLE
 
                 last = (
                     (
