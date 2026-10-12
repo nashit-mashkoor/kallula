@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -6,6 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from coordinator.active import ActiveRuns
 from coordinator.sink import RunEventSink
 from domain.states import (
     AttemptState,
@@ -48,6 +50,11 @@ def _failure_details(result: EngineResult) -> tuple[str, str]:
             result.failure_summary or "Engine finished without verified completion.",
         )
     return "ENGINE_FAILED", result.failure_summary or "Run failed."
+
+
+async def _watch_stop(signal: asyncio.Event, engine: Engine) -> None:
+    await signal.wait()
+    engine.request_safe_stop()
 
 
 async def _finish_failed(
@@ -118,6 +125,34 @@ async def _finish_completed(
     )
 
 
+async def _finish_stopped(
+    session: AsyncSession,
+    run: Run,
+    attempt: ExecutionAttempt,
+    moment: datetime,
+) -> None:
+    attempt.state = next_attempt_state(attempt.state, AttemptState.EXITED)
+    attempt.ended_at = moment
+    attempt.terminal_reason = "SAFE_STOP"
+    run.active_attempt_id = None
+    run.control_state = next_run_state(run.control_state, RunControlState.STOPPED)
+    await append_event(
+        session,
+        run,
+        event_type="ATTEMPT_EXITED",
+        category="ATTEMPT",
+        summary="Attempt exited at a safe boundary.",
+        attempt_id=attempt.id,
+    )
+    await append_event(
+        session,
+        run,
+        event_type="RUN_STOPPED",
+        category="RUN",
+        summary="Run stopped safely.",
+    )
+
+
 async def drive_run(
     session: AsyncSession,
     run: Run,
@@ -125,6 +160,7 @@ async def drive_run(
     *,
     holder_id: str,
     now: datetime | None = None,
+    stop_signal: asyncio.Event | None = None,
 ) -> None:
     moment = _naive_now(now)
     lease = await leases.acquire(
@@ -178,7 +214,18 @@ async def drive_run(
         )
         try:
             engine = await engine_factory(session, run)
-            result = await engine.run(request, RunEventSink(session, run, attempt.id))
+            watcher = (
+                asyncio.create_task(_watch_stop(stop_signal, engine))
+                if stop_signal is not None
+                else None
+            )
+            try:
+                result = await engine.run(
+                    request, RunEventSink(session, run, attempt.id)
+                )
+            finally:
+                if watcher is not None:
+                    watcher.cancel()
         except EngineError as exc:
             await _finish_failed(
                 session,
@@ -193,6 +240,8 @@ async def drive_run(
         else:
             if result.outcome is EngineOutcome.COMPLETED_VERIFIED:
                 await _finish_completed(session, run, attempt, moment)
+            elif result.outcome is EngineOutcome.STOPPED_SAFE:
+                await _finish_stopped(session, run, attempt, moment)
             else:
                 failure_code, failure_summary = _failure_details(result)
                 await _finish_failed(
@@ -224,6 +273,7 @@ async def process_queued_runs(
     holder_id: str,
     engine_factory: EngineFactory,
     now: datetime | None = None,
+    active: ActiveRuns | None = None,
 ) -> int:
     runs = (
         (
@@ -238,9 +288,22 @@ async def process_queued_runs(
     )
     processed = 0
     for run in runs:
+        if active is not None and active.is_active(run.id):
+            continue
+        signal = active.register(run.id) if active is not None else None
         try:
-            await drive_run(session, run, engine_factory, holder_id=holder_id, now=now)
+            await drive_run(
+                session,
+                run,
+                engine_factory,
+                holder_id=holder_id,
+                now=now,
+                stop_signal=signal,
+            )
             processed += 1
         except leases.LeaseConflictError:
             continue
+        finally:
+            if active is not None:
+                active.unregister(run.id)
     return processed

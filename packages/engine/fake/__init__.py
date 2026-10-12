@@ -17,11 +17,14 @@ from engine.base import (
 class FakeScenario(StrEnum):
     COMPLETE_IMMEDIATELY = "complete_immediately"
     FAIL_DURING_EXECUTION = "fail_during_execution"
+    STOP_AT_SAFE_BOUNDARY = "stop_at_safe_boundary"
     EMIT_WORK_ITEMS = "emit_work_items"
 
 
 FAKE_IDENTITY = EngineIdentity(family="FAKE", revision="1", adapter_version="1")
-FAKE_CAPABILITIES = EngineCapabilities(autonomous_defaults=True, work_items=True)
+FAKE_CAPABILITIES = EngineCapabilities(
+    autonomous_defaults=True, safe_stop=True, work_items=True
+)
 
 
 class FakeEngine:
@@ -33,12 +36,17 @@ class FakeEngine:
     def describe(self) -> EngineDescriptor:
         return EngineDescriptor(identity=FAKE_IDENTITY, capabilities=FAKE_CAPABILITIES)
 
+    def request_safe_stop(self) -> None:
+        return
+
     async def run(self, request: EngineRunRequest, hooks: EngineHooks) -> EngineResult:
         if self.scenario is FakeScenario.FAIL_DURING_EXECUTION:
             return EngineResult(
                 outcome=EngineOutcome.FAILED,
                 failure_summary="Fake engine failed during execution.",
             )
+        if self.scenario is FakeScenario.STOP_AT_SAFE_BOUNDARY:
+            return EngineResult(outcome=EngineOutcome.STOPPED_SAFE)
         if self.scenario is FakeScenario.EMIT_WORK_ITEMS:
             await self._emit_work_items(hooks)
         return EngineResult(outcome=EngineOutcome.COMPLETED_VERIFIED)

@@ -2,11 +2,14 @@ import asyncio
 import logging
 import signal
 
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from coordinator.active import ActiveRuns
+from coordinator.commands import process_commands
 from coordinator.engines import build_engine_factory, register_pinned_installation
 from coordinator.loop import (
     POLL_INTERVAL_SECONDS,
+    EngineFactory,
     default_holder_id,
     process_queued_runs,
 )
@@ -36,6 +39,45 @@ def _install_signal_handlers(stop: asyncio.Event) -> None:
             pass
 
 
+async def _drive_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    holder_id: str,
+    engine_factory: EngineFactory,
+    active: ActiveRuns,
+    stop: asyncio.Event,
+) -> None:
+    while not stop.is_set():
+        try:
+            async with session_factory() as session:
+                processed = await process_queued_runs(
+                    session,
+                    holder_id=holder_id,
+                    engine_factory=engine_factory,
+                    active=active,
+                )
+                if processed:
+                    logger.info("processed runs", extra={"count": processed})
+        except Exception:
+            logger.exception("coordinator iteration failed")
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+
+async def _command_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    active: ActiveRuns,
+    stop: asyncio.Event,
+) -> None:
+    while not stop.is_set():
+        try:
+            async with session_factory() as session:
+                applied = await process_commands(session, active=active)
+                if applied:
+                    logger.info("applied commands", extra={"count": applied})
+        except Exception:
+            logger.exception("command iteration failed")
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+
 async def run() -> None:
     settings = CoordinatorSettings()
     configure_logging(settings.log_level)
@@ -57,31 +99,25 @@ async def run() -> None:
             )
         except Exception:
             logger.exception("engine installation registration failed")
+
     stop = asyncio.Event()
     _install_signal_handlers(stop)
+    active = ActiveRuns()
+    tasks: list[asyncio.Task] = []
+    if engine_factory is not None:
+        tasks.append(
+            asyncio.create_task(
+                _drive_loop(factory, holder_id, engine_factory, active, stop)
+            )
+        )
+        tasks.append(asyncio.create_task(_command_loop(factory, active, stop)))
     logger.info("coordinator ready")
 
     try:
-        while not stop.is_set():
-            try:
-                async with factory() as session:
-                    processed = (
-                        0
-                        if engine_factory is None
-                        else await process_queued_runs(
-                            session,
-                            holder_id=holder_id,
-                            engine_factory=engine_factory,
-                        )
-                    )
-                    if processed:
-                        logger.info("processed runs", extra={"count": processed})
-            except Exception:
-                logger.exception("coordinator iteration failed")
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=POLL_INTERVAL_SECONDS)
-            except TimeoutError:
-                pass
+        await stop.wait()
     finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await engine.dispose()
         logger.info("coordinator stopped")
