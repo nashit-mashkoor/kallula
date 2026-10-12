@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Link, useParams } from "react-router";
 
@@ -7,9 +7,19 @@ import {
   getRun,
   getRunConfiguration,
   listArtifacts,
+  listAttempts,
   listWorkItems,
+  resumeRun,
+  stopRun,
 } from "../api/client";
 import { useRunEvents } from "../hooks/useRunEvents";
+import {
+  attemptLabel,
+  blockedResumeReason,
+  canRequestSafeStop,
+  canResume,
+  failureLabel,
+} from "../runActions";
 import {
   engineIdentityLabel,
   stageProgress,
@@ -22,6 +32,10 @@ export function RunPage() {
   const { projectId = "", runId = "" } = useParams();
   const queryClient = useQueryClient();
   const run = useQuery({ queryKey: ["run", runId], queryFn: () => getRun(runId) });
+  const attempts = useQuery({
+    queryKey: ["attempts", runId],
+    queryFn: () => listAttempts(runId),
+  });
   const workItems = useQuery({
     queryKey: ["work-items", runId],
     queryFn: () => listWorkItems(runId),
@@ -36,6 +50,19 @@ export function RunPage() {
   });
   const { events, status } = useRunEvents(runId);
 
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["run", runId] });
+    void queryClient.invalidateQueries({ queryKey: ["attempts", runId] });
+    void queryClient.invalidateQueries({ queryKey: ["work-items", runId] });
+    void queryClient.invalidateQueries({ queryKey: ["artifacts", runId] });
+  };
+
+  const stop = useMutation({ mutationFn: () => stopRun(runId), onSuccess: refresh });
+  const resume = useMutation({
+    mutationFn: () => resumeRun(runId),
+    onSuccess: refresh,
+  });
+
   useEffect(() => {
     if (events.length > 0) {
       void queryClient.invalidateQueries({ queryKey: ["run", runId] });
@@ -49,6 +76,8 @@ export function RunPage() {
   const summary = workItemSummaryLabel(run.data?.work_item_summary ?? null);
   const installation = configuration.data?.engine_installation ?? null;
   const identity = engineIdentityLabel(installation);
+  const resumeReason = run.data ? blockedResumeReason(run.data) : null;
+  const failure = run.data ? failureLabel(run.data) : null;
 
   return (
     <main>
@@ -73,9 +102,27 @@ export function RunPage() {
           <dd>{run.data.ordinal}</dd>
         </dl>
       )}
+
+      <p>
+        {run.data && canRequestSafeStop(run.data.control_state) && (
+          <button onClick={() => stop.mutate()} disabled={stop.isPending}>
+            Stop safely
+          </button>
+        )}{" "}
+        {run.data && canResume(run.data) && (
+          <button onClick={() => resume.mutate()} disabled={resume.isPending}>
+            Resume
+          </button>
+        )}
+      </p>
+      {stop.isError && <p>Could not request a safe stop.</p>}
+      {resume.isError && <p>Could not resume the Run.</p>}
+      {resumeReason && <p>Resume unavailable: {resumeReason}</p>}
+
       {run.data?.failure && (
         <p role="alert">
           Run failed: {run.data.failure.summary ?? run.data.failure.code ?? "unknown reason"}
+          {failure ? ` (${failure})` : ""}
         </p>
       )}
 
@@ -92,6 +139,14 @@ export function RunPage() {
           </ol>
         </>
       )}
+
+      <h2>Attempts</h2>
+      <ul>
+        {attempts.data?.items.map((attempt) => (
+          <li key={attempt.id}>{attemptLabel(attempt)}</li>
+        ))}
+        {attempts.data?.items.length === 0 && <li>No attempts yet.</li>}
+      </ul>
 
       <h2>Progress</h2>
       <p>{summary ?? "No work items yet."}</p>

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from api.artifacts import router as artifacts_router
+from api.attempts import router as attempts_router
 from api.commands import router as commands_router
 from api.events import router as events_router
 from api.installations import router as installations_router
@@ -16,6 +17,7 @@ api_router.include_router(commands_router)
 api_router.include_router(projects_router)
 api_router.include_router(installations_router)
 api_router.include_router(runs_router)
+api_router.include_router(attempts_router)
 api_router.include_router(work_items_router)
 api_router.include_router(artifacts_router)
 api_router.include_router(events_router)

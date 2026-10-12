@@ -9,6 +9,7 @@ from api.settings import Settings
 from domain.states import (
     ArtifactClass,
     ArtifactStorageKind,
+    AttemptState,
     CompatibilityStatus,
     EngineInstallationStatus,
     Recoverability,
@@ -24,6 +25,7 @@ from persistence.models import (
     Command,
     EngineInstallation,
     Event,
+    ExecutionAttempt,
     Principal,
     Project,
     Run,
@@ -218,6 +220,35 @@ def set_run_state(
     asyncio.run(
         _set_run_state(database_url, run_id, state, recoverability=recoverability)
     )
+
+
+async def _seed_attempt(
+    database_url: str,
+    run_id: str,
+    *,
+    ordinal: int = 1,
+    state: AttemptState = AttemptState.EXITED,
+    terminal_reason: str | None = "ENGINE_OUTCOME",
+) -> str:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            attempt = ExecutionAttempt(
+                run_id=run_id,
+                ordinal=ordinal,
+                state=state,
+                terminal_reason=terminal_reason,
+            )
+            session.add(attempt)
+            await session.commit()
+            return attempt.id
+    finally:
+        await engine.dispose()
+
+
+def seed_attempt(database_url: str, run_id: str, **kwargs) -> str:
+    return asyncio.run(_seed_attempt(database_url, run_id, **kwargs))
 
 
 async def _seed_command(database_url: str) -> str:

@@ -61,12 +61,43 @@ export type Run = {
   active_work_item_id: string | null;
   work_item_summary: WorkItemSummary | null;
   engine_installation_id: string | null;
+  recovery: { resume_allowed: boolean; reason: string | null };
   failure: {
     class: string | null;
     code: string | null;
     summary: string | null;
+    recoverability: string | null;
   } | null;
   version: number;
+};
+
+export type Command = {
+  id: string;
+  command_type: string;
+  target_type: string;
+  target_id: string;
+  state: string;
+};
+
+export type Attempt = {
+  id: string;
+  run_id: string;
+  ordinal: number;
+  state: string;
+  terminal_reason: string | null;
+  created_at: string;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
+export type ResumeCompatibility = {
+  run_id: string;
+  control_state: string;
+  status: string;
+  reason: string | null;
+  allowed_action: string | null;
+  engine_installation: EngineInstallation | null;
+  workspace: { status: string } | null;
 };
 
 export type WorkItem = {
@@ -147,6 +178,26 @@ export function listWorkItems(runId: string): Promise<{ items: WorkItem[] }> {
 
 export function listArtifacts(runId: string): Promise<{ items: Artifact[] }> {
   return apiGet(`/api/v1/runs/${runId}/artifacts`);
+}
+
+export function listAttempts(runId: string): Promise<{ items: Attempt[] }> {
+  return apiGet(`/api/v1/runs/${runId}/attempts`);
+}
+
+export function stopRun(runId: string): Promise<Command> {
+  return apiPost(`/api/v1/runs/${runId}/commands/stop`, { mode: "SAFE" });
+}
+
+export function resumeRun(runId: string): Promise<Command> {
+  return apiPost(`/api/v1/runs/${runId}/commands/resume`, {
+    reason: "USER_REQUEST",
+  });
+}
+
+export function getRunResumeCompatibility(
+  runId: string,
+): Promise<ResumeCompatibility> {
+  return apiGet(`/api/v1/runs/${runId}/resume-compatibility`);
 }
 
 export function artifactContentUrl(artifactId: string): string {
