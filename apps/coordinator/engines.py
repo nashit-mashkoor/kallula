@@ -102,7 +102,7 @@ async def register_pinned_installation(
 ) -> EngineInstallation:
     source_root = Path(settings.engine_source_root).resolve()
     descriptor = inspect_engine(source_root)
-    manifest = capability_manifest()
+    manifest = capability_manifest(source_root)
     digest = (
         "sha256:"
         + hashlib.sha256(

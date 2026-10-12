@@ -23,6 +23,7 @@ class EngineOutcome(StrEnum):
     COMPLETED_VERIFIED = "COMPLETED_VERIFIED"
     TERMINAL_UNVERIFIED_OR_INCOMPLETE = "TERMINAL_UNVERIFIED_OR_INCOMPLETE"
     STOPPED_SAFE = "STOPPED_SAFE"
+    WAITING_FOR_HUMAN = "WAITING_FOR_HUMAN"
     FAILED = "FAILED"
 
 
@@ -48,16 +49,39 @@ class EngineEvent:
 
 
 @dataclass(frozen=True)
+class EngineInteraction:
+    """A native pending interaction surfaced by the engine."""
+
+    native_id: str
+    kind: str
+    question: str
+    recommendation: str | None = None
+    final: bool = False
+
+
+@dataclass(frozen=True)
+class EngineInteractionResponse:
+    """An accepted human response keyed to a native interaction."""
+
+    interaction_id: str
+    kind: str
+    accept: bool = False
+    answer: str = ""
+
+
+@dataclass(frozen=True)
 class EngineRunRequest:
     project_id: str
     run_id: str
     attempt_id: str
+    response: EngineInteractionResponse | None = None
 
 
 @dataclass(frozen=True)
 class EngineResult:
     outcome: EngineOutcome
     failure_summary: str | None = None
+    interaction: EngineInteraction | None = None
 
 
 @dataclass(frozen=True)

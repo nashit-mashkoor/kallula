@@ -42,6 +42,7 @@ case "$model" in
       *"spec-driven-development"*) printf '# Spec\n\nA tiny todo CLI in Python.\n' ;;
       *"planning-and-task-breakdown"*) printf '# Issues\n\n## Issue #1: Add hello\nWrite hello.\n\n## Issue #2: Add bye\nWrite bye.\n' ;;
       *"factory-learner"*) printf 'PROJECT_LEARNING:\n  Project: run\n  Actions:\n    LEARNING: stub learning — detail\n' ;;
+      *"interview-me"*) printf 'INTENT_FINALIZED: a tiny todo cli\n' ;;
       *"Evaluate if this review meets"*) printf 'APPROVED: meets the definition of done\n' ;;
       *"A worker requests approval"*) printf 'APPROVED: aligned with the intent\n' ;;
       *) printf 'RESOLUTION: use the standard library\nAPPROACH: simplest path\n' ;;

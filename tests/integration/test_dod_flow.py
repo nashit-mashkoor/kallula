@@ -12,8 +12,6 @@ from coordinator.settings import CoordinatorSettings
 from persistence.base import Base
 from persistence.db import create_db_engine, create_session_factory
 
-VENDOR_REVISION = "20b149e0734b09730dfd22803d2695776fcf84b8"
-
 
 async def prepare(database_url: str) -> None:
     engine = create_db_engine(database_url)
@@ -46,7 +44,7 @@ async def execute(database_url: str, engine_factory) -> int:
         await engine.dispose()
 
 
-def test_definition_of_done_flow(tmp_path):
+def test_definition_of_done_flow(tmp_path, pinned_engine_revision):
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'dod.db'}"
     workspace_root = tmp_path / "workspaces"
     asyncio.run(prepare(database_url))
@@ -138,7 +136,7 @@ def test_definition_of_done_flow(tmp_path):
         configuration = client.get(f"/api/v1/runs/{run['id']}/configuration").json()
         installation = configuration["engine_installation"]
         assert installation["engine_family"] == "SIESTA"
-        assert installation["engine_revision"] == VENDOR_REVISION
+        assert installation["engine_revision"] == pinned_engine_revision
         assert installation["status"] == "SUPPORTED"
 
     workspace = workspace_root / "projects" / project["id"] / "workspace"

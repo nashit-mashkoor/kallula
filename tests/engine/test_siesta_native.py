@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from engine.base import EngineOutcome
+from engine.base import EngineInteraction, EngineOutcome
 from engine.siesta import (
     SiestaAdapterError,
     classify_outcome,
@@ -255,3 +255,64 @@ def test_discover_artifacts_maps_documented_patterns(tmp_path):
     assert "Implementation plan" in names
     assert "Issue 1 output" in names
     assert "Project knowledge" in names
+
+
+def pending_state(**overrides) -> dict:
+    state = {
+        "format_version": 1,
+        "interaction_id": "int-1",
+        "kind": "requirements_question",
+        "turn": 1,
+        "question": "Which UI?",
+        "recommendation": "menu bar",
+        "final": False,
+        "transcript_sha256": "sha256:x",
+        "created_at": "2026-10-12T00:00:00Z",
+        "consumed": False,
+        "raw": "Q: Which UI?\nGUESS: menu bar",
+    }
+    state.update(overrides)
+    return state
+
+
+def test_inspect_workspace_reads_open_pending_interaction(tmp_path):
+    workspace = make_workspace(tmp_path)
+    (workspace / ".pipeline-interaction.json").write_text(json.dumps(pending_state()))
+
+    state = inspect_workspace(workspace)
+
+    assert state.interaction is not None
+    assert state.interaction.native_id == "int-1"
+    assert state.interaction.kind == "QUESTION"
+    assert state.interaction.question == "Which UI?"
+    assert state.interaction.recommendation == "menu bar"
+    assert state.interaction.final is False
+    outcome, summary = classify_outcome(state, 0)
+    assert outcome is EngineOutcome.WAITING_FOR_HUMAN
+    assert summary is None
+
+
+def test_consumed_or_invalid_interaction_state_is_ignored(tmp_path):
+    workspace = make_workspace(tmp_path)
+    path = workspace / ".pipeline-interaction.json"
+
+    path.write_text(json.dumps(pending_state(consumed=True)))
+    assert inspect_workspace(workspace).interaction is None
+
+    path.write_text("{not json")
+    assert inspect_workspace(workspace).interaction is None
+
+    path.write_text(json.dumps({"interaction_id": "int-1"}))
+    assert inspect_workspace(workspace).interaction is None
+
+
+def test_classify_outcome_waiting_takes_precedence():
+    interaction = EngineInteraction(
+        native_id="int-1", kind="intent_confirmation", question="summary", final=True
+    )
+    state = NativeState("complete", (), "VERIFY_PASSED", False, False, interaction)
+
+    outcome, summary = classify_outcome(state, 0)
+
+    assert outcome is EngineOutcome.WAITING_FOR_HUMAN
+    assert summary is None

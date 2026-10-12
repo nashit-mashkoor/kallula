@@ -6,7 +6,12 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from engine.base import EngineOutcome, EngineStage, StageCategory
+from engine.base import (
+    EngineInteraction,
+    EngineOutcome,
+    EngineStage,
+    StageCategory,
+)
 from engine.siesta.errors import SiestaAdapterError
 
 ISSUE_HEADER = re.compile(
@@ -14,6 +19,16 @@ ISSUE_HEADER = re.compile(
 )
 ISSUE_NUMBER = re.compile(r"[Ii]ssue #(\d+)")
 STOP_MARKER = "stop.md"
+INTERACTION_STATE_FILE = ".pipeline-interaction.json"
+INTERACTION_RESPONSE_FILE = "interaction-response.json"
+
+# Native interaction kinds map to the stable Kallula interaction purposes
+# (API & Data Contract Specification section 26.2). Unknown future kinds are
+# surfaced as a question rather than leaking native identifiers.
+INTERACTION_KINDS = {
+    "requirements_question": "QUESTION",
+    "intent_confirmation": "FINAL_INTENT_CONFIRMATION",
+}
 
 PHASE_STAGES = {
     "phase-0": StageCategory.REQUIREMENTS,
@@ -90,6 +105,7 @@ class NativeState:
     verdict: str | None
     failed: bool
     stopped: bool = False
+    interaction: EngineInteraction | None = None
 
 
 def make_stage(category: StageCategory, native_id: str | None = None) -> EngineStage:
@@ -146,6 +162,33 @@ def inspect_workspace(workspace: Path) -> NativeState:
         verdict=verdict,
         failed=failed,
         stopped=stopped,
+        interaction=read_interaction(workspace),
+    )
+
+
+def read_interaction(workspace: Path) -> EngineInteraction | None:
+    """The native pending interaction, if one is open (not yet consumed)."""
+    raw = _read_text(Path(workspace) / INTERACTION_STATE_FILE)
+    if raw is None:
+        return None
+    try:
+        state = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(state, dict) or state.get("consumed"):
+        return None
+    interaction_id = state.get("interaction_id")
+    kind = state.get("kind")
+    question = state.get("question")
+    if not interaction_id or not kind or not question:
+        return None
+    recommendation = state.get("recommendation")
+    return EngineInteraction(
+        native_id=str(interaction_id),
+        kind=INTERACTION_KINDS.get(str(kind), "QUESTION"),
+        question=str(question),
+        recommendation=str(recommendation) if recommendation else None,
+        final=bool(state.get("final")),
     )
 
 
@@ -202,6 +245,10 @@ def artifact_display_name(relative_path: str) -> str:
 def classify_outcome(
     state: NativeState, returncode: int | None
 ) -> tuple[EngineOutcome, str | None]:
+    if state.interaction is not None:
+        # The engine persisted the pending interaction before exiting; the
+        # worker is released and the answer resumes the Run later.
+        return EngineOutcome.WAITING_FOR_HUMAN, None
     blocked = [issue.number for issue in state.issues if issue.blocked]
     verified = (
         state.checkpoint == "complete"

@@ -18,7 +18,6 @@ from persistence.db import create_db_engine, create_session_factory
 from persistence.models import EngineInstallation
 
 VENDOR_FACTORY = Path(__file__).resolve().parents[2] / "vendor/siesta/factory"
-PINNED_REVISION = "20b149e0734b09730dfd22803d2695776fcf84b8"
 
 
 def make_settings(tmp_path, **overrides) -> CoordinatorSettings:
@@ -95,7 +94,7 @@ def test_apply_models_config_rejects_unreadable_configuration(tmp_path):
     assert excinfo.value.code == "COORDINATOR_MODELS_CONFIG_INVALID"
 
 
-def test_register_pinned_installation_is_idempotent(tmp_path):
+def test_register_pinned_installation_is_idempotent(tmp_path, pinned_engine_revision):
     async def scenario():
         database_url = f"sqlite+aiosqlite:///{tmp_path / 'engines.db'}"
         engine = create_db_engine(database_url)
@@ -109,7 +108,7 @@ def test_register_pinned_installation_is_idempotent(tmp_path):
                 await session.commit()
                 first_id = first.id
                 assert first.engine_family == "SIESTA"
-                assert first.engine_revision == PINNED_REVISION
+                assert first.engine_revision == pinned_engine_revision
                 assert first.status is EngineInstallationStatus.SUPPORTED
                 assert first.compatibility_launch is CompatibilityStatus.SUPPORTED
                 assert first.default_for_new_runs is True

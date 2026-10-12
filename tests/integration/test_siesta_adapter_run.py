@@ -9,7 +9,6 @@ from runtime.base.engine_runtime import EngineRuntimeManager
 from runtime.base.workspace import WorkspaceManager
 
 VENDOR_FACTORY = Path(__file__).resolve().parents[2] / "vendor/siesta/factory"
-VENDOR_REVISION = "20b149e0734b09730dfd22803d2695776fcf84b8"
 
 STUB_PI = r"""#!/bin/bash
 d="$(dirname "$0")"
@@ -58,7 +57,7 @@ class RecordingHooks:
 
 
 def test_adapter_launches_pinned_revision_with_workspace_injection(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, pinned_engine_revision
 ):
     root = tmp_path / "root"
     runtime = EngineRuntimeManager(root).ensure(
@@ -81,7 +80,7 @@ def test_adapter_launches_pinned_revision_with_workspace_injection(
         poll_interval=0.2,
         extra_env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
     )
-    assert adapter.describe().identity.revision == VENDOR_REVISION
+    assert adapter.describe().identity.revision == pinned_engine_revision
 
     hooks = RecordingHooks()
     request = EngineRunRequest(

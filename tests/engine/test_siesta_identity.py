@@ -6,15 +6,16 @@ from engine.siesta import (
     capability_manifest,
     inspect_engine,
 )
+from engine.siesta.identity import supports_external_interaction
 
 VENDOR_FACTORY = Path(__file__).resolve().parents[2] / "vendor/siesta/factory"
 
 
-def test_inspect_engine_reports_pinned_revision():
+def test_inspect_engine_reports_pinned_revision(pinned_engine_revision):
     descriptor = inspect_engine(VENDOR_FACTORY)
 
     assert descriptor.identity.family == "SIESTA"
-    assert descriptor.identity.revision == "20b149e0734b09730dfd22803d2695776fcf84b8"
+    assert descriptor.identity.revision == pinned_engine_revision
     assert descriptor.identity.adapter_version == ADAPTER_VERSION
     assert descriptor.capabilities.autonomous_defaults is True
     assert descriptor.capabilities.safe_stop is True
@@ -22,20 +23,27 @@ def test_inspect_engine_reports_pinned_revision():
     assert descriptor.capabilities.review is True
     assert descriptor.capabilities.verification is True
     assert descriptor.capabilities.learning is True
-    assert descriptor.capabilities.human_requirements is False
+    assert descriptor.capabilities.human_requirements is True
     assert descriptor.capabilities.resume is False
 
 
 def test_capability_manifest_is_honest_for_this_milestone():
-    manifest = capability_manifest()
+    manifest = capability_manifest(VENDOR_FACTORY)
 
     assert manifest["interaction"] == {
-        "human_requirements": False,
+        "human_requirements": True,
         "autonomous_defaults": True,
     }
     assert manifest["run_control"] == {"safe_stop": True, "resume": False}
     assert manifest["native_state_format_version"] == 1
     assert "VERIFICATION_EVIDENCE" in manifest["artifacts"]
+
+
+def test_external_interaction_probe_rejects_plain_builds(tmp_path):
+    assert supports_external_interaction(VENDOR_FACTORY) is True
+    assert supports_external_interaction(tmp_path) is False
+    manifest = capability_manifest(tmp_path)
+    assert manifest["interaction"]["human_requirements"] is False
 
 
 def test_child_env_resolves_relative_paths(monkeypatch, tmp_path):

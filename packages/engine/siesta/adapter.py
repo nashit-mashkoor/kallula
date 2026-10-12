@@ -1,5 +1,7 @@
 import asyncio
 import hashlib
+import json
+import os
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -10,6 +12,7 @@ from engine.base import (
     EngineDescriptor,
     EngineEvent,
     EngineHooks,
+    EngineInteractionResponse,
     EngineOutcome,
     EngineResult,
     EngineRunRequest,
@@ -20,6 +23,7 @@ from engine.siesta.env import build_child_env
 from engine.siesta.errors import SiestaAdapterError
 from engine.siesta.identity import inspect_engine
 from engine.siesta.native import (
+    INTERACTION_RESPONSE_FILE,
     PHASE_STAGES,
     STAGE_SEQUENCE,
     NativeArtifact,
@@ -36,6 +40,8 @@ from engine.siesta.native import (
 )
 
 PHASE_SEQUENCE = tuple(PHASE_STAGES)
+EXTERNAL_CHANNEL_ENV = "SIESTA_HUMAN_CHANNEL"
+INTERACTION_RESPONSE_ENV = "SIESTA_INTERACTION_RESPONSE_FILE"
 
 
 class SiestaAdapter:
@@ -63,17 +69,26 @@ class SiestaAdapter:
         write_stop_marker(self._workspace_path)
 
     def inspect_result(self) -> EngineResult:
-        outcome, summary = classify_outcome(
-            inspect_workspace(self._workspace_path), None
+        state = inspect_workspace(self._workspace_path)
+        outcome, summary = classify_outcome(state, None)
+        return EngineResult(
+            outcome=outcome, failure_summary=summary, interaction=state.interaction
         )
-        return EngineResult(outcome=outcome, failure_summary=summary)
 
     async def run(self, request: EngineRunRequest, hooks: EngineHooks) -> EngineResult:
         self._prepare_launch()
+        extra = dict(self._extra_env or {})
+        extra[EXTERNAL_CHANNEL_ENV] = "external"
+        response_path = self._runtime_path / INTERACTION_RESPONSE_FILE
+        if request.response is None:
+            response_path.unlink(missing_ok=True)
+        else:
+            self._write_response(response_path, request.response)
+            extra[INTERACTION_RESPONSE_ENV] = str(response_path)
         env = build_child_env(
             source_root=self._source_root,
             runtime_path=self._runtime_path,
-            extra=self._extra_env,
+            extra=extra,
         )
         try:
             process = await asyncio.create_subprocess_exec(
@@ -81,7 +96,6 @@ class SiestaAdapter:
                 "-m",
                 "pipeline",
                 self._objective,
-                "--auto",
                 cwd=str(self._runtime_path),
                 env=env,
                 stdin=asyncio.subprocess.DEVNULL,
@@ -122,7 +136,29 @@ class SiestaAdapter:
             tail = _error_tail(stderr_text)
             if tail:
                 summary = f"{summary} Last engine output: {tail}"
-        return EngineResult(outcome=outcome, failure_summary=summary)
+        return EngineResult(
+            outcome=outcome, failure_summary=summary, interaction=native.interaction
+        )
+
+    def _write_response(self, path: Path, response: EngineInteractionResponse) -> None:
+        payload = json.dumps(
+            {
+                "interaction_id": response.interaction_id,
+                "kind": response.kind,
+                "accept": response.accept,
+                "answer": response.answer,
+            },
+            indent=2,
+        )
+        try:
+            tmp = path.parent / (path.name + ".tmp")
+            tmp.write_text(payload + "\n")
+            os.replace(tmp, path)
+        except OSError as exc:
+            raise SiestaAdapterError(
+                "SIESTA_RESPONSE_DELIVERY_FAILED",
+                "The interaction response could not be delivered to the engine.",
+            ) from exc
 
     def _prepare_launch(self) -> None:
         self._check_objective_conflict()
