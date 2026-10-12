@@ -5,6 +5,7 @@ from api.attempts import router as attempts_router
 from api.commands import router as commands_router
 from api.events import router as events_router
 from api.installations import router as installations_router
+from api.interactions import router as interactions_router
 from api.projects import router as projects_router
 from api.runs import router as runs_router
 from api.session import router as session_router
@@ -18,6 +19,7 @@ api_router.include_router(projects_router)
 api_router.include_router(installations_router)
 api_router.include_router(runs_router)
 api_router.include_router(attempts_router)
+api_router.include_router(interactions_router)
 api_router.include_router(work_items_router)
 api_router.include_router(artifacts_router)
 api_router.include_router(events_router)

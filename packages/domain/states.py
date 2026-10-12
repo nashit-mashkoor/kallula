@@ -41,6 +41,27 @@ class CommandState(StrEnum):
     FAILED = "FAILED"
 
 
+class InteractionKind(StrEnum):
+    QUESTION = "QUESTION"
+    FINAL_INTENT_CONFIRMATION = "FINAL_INTENT_CONFIRMATION"
+
+
+class InteractionState(StrEnum):
+    OPEN = "OPEN"
+    ANSWERED = "ANSWERED"
+    DELEGATED = "DELEGATED"
+    CANCELED = "CANCELED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class InteractionResponseType(StrEnum):
+    ANSWER = "ANSWER"
+    USE_RECOMMENDATION = "USE_RECOMMENDATION"
+    CONFIRM = "CONFIRM"
+    REQUEST_CHANGE = "REQUEST_CHANGE"
+    DELEGATE_REMAINING = "DELEGATE_REMAINING"
+
+
 class EngineInstallationStatus(StrEnum):
     CANDIDATE = "CANDIDATE"
     SUPPORTED = "SUPPORTED"

@@ -12,6 +12,8 @@ from domain.states import (
     AttemptState,
     CompatibilityStatus,
     EngineInstallationStatus,
+    InteractionKind,
+    InteractionState,
     Recoverability,
     RunControlState,
     WorkItemState,
@@ -26,6 +28,7 @@ from persistence.models import (
     EngineInstallation,
     Event,
     ExecutionAttempt,
+    PendingInteraction,
     Principal,
     Project,
     Run,
@@ -338,6 +341,56 @@ async def _seed_run(database_url: str) -> str:
 
 def seed_run(database_url: str) -> str:
     return asyncio.run(_seed_run(database_url))
+
+
+async def _seed_interaction(
+    database_url: str,
+    run_id: str,
+    *,
+    kind: InteractionKind = InteractionKind.QUESTION,
+    prompt: str = "Which UI?",
+    recommendation: str | None = "menu bar",
+    attempt_id: str | None = None,
+) -> str:
+    engine = create_db_engine(database_url)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            run = (
+                await session.execute(select(Run).where(Run.id == run_id))
+            ).scalar_one()
+            interaction = PendingInteraction(
+                run_id=run_id,
+                attempt_id=attempt_id,
+                kind=kind,
+                status=InteractionState.OPEN,
+                title="Requirements question"
+                if kind is InteractionKind.QUESTION
+                else "Final intent confirmation",
+                prompt=prompt,
+                recommendation=recommendation,
+                context_json={"accepted_turns": []},
+                allowed_responses_json=[
+                    "ANSWER",
+                    "USE_RECOMMENDATION",
+                    "DELEGATE_REMAINING",
+                ]
+                if kind is InteractionKind.QUESTION
+                else ["CONFIRM", "REQUEST_CHANGE"],
+                engine_interaction_token="native-interaction-1",
+            )
+            session.add(interaction)
+            await session.flush()
+            run.pending_interaction_id = interaction.id
+            run.control_state = RunControlState.WAITING_FOR_HUMAN
+            await session.commit()
+            return interaction.id
+    finally:
+        await engine.dispose()
+
+
+def seed_interaction(database_url: str, run_id: str, **kwargs) -> str:
+    return asyncio.run(_seed_interaction(database_url, run_id, **kwargs))
 
 
 async def _append_run_event(database_url: str, run_id: str, summary: str) -> int:

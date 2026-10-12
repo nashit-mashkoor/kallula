@@ -7,10 +7,12 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,6 +26,9 @@ from domain.states import (
     EngineRuntimeState,
     EventSeverity,
     EventSource,
+    InteractionKind,
+    InteractionResponseType,
+    InteractionState,
     OriginType,
     Recoverability,
     RunControlState,
@@ -539,3 +544,76 @@ class Event(Base):
         UniqueConstraint("run_id", "sequence"),
         UniqueConstraint("attempt_id", "source_event_sequence"),
     )
+
+
+class PendingInteraction(Base):
+    __tablename__ = "pending_interactions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    attempt_id: Mapped[str | None] = mapped_column(ForeignKey("execution_attempts.id"))
+    kind: Mapped[InteractionKind] = mapped_column(
+        Enum(
+            InteractionKind,
+            name="interaction_kind",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        )
+    )
+    status: Mapped[InteractionState] = mapped_column(
+        Enum(
+            InteractionState,
+            name="interaction_state",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        ),
+        default=InteractionState.OPEN,
+    )
+    title: Mapped[str] = mapped_column(String(255))
+    prompt: Mapped[str] = mapped_column(Text)
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    context_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    allowed_responses_json: Mapped[list] = mapped_column(JSON, default=list)
+    engine_interaction_token: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    __table_args__ = (
+        Index(
+            "uq_pending_interactions_open_run",
+            "run_id",
+            unique=True,
+            sqlite_where=text("status = 'OPEN'"),
+            postgresql_where=text("status = 'OPEN'"),
+        ),
+    )
+
+
+class InteractionResponse(Base):
+    __tablename__ = "interaction_responses"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    interaction_id: Mapped[str] = mapped_column(
+        ForeignKey("pending_interactions.id"), unique=True
+    )
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    actor_principal_id: Mapped[str] = mapped_column(ForeignKey("principals.id"))
+    response_type: Mapped[InteractionResponseType] = mapped_column(
+        Enum(
+            InteractionResponseType,
+            name="interaction_response_type",
+            native_enum=False,
+            create_constraint=True,
+            length=32,
+        )
+    )
+    answer_text: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    command_id: Mapped[str | None] = mapped_column(ForeignKey("commands.id"))
