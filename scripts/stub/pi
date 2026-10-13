@@ -21,7 +21,11 @@ case "$prompt" in
   *"code-reviewer"*)
     printf 'REVIEW_PASSED: no issues found\n' ;;
   *"interview"*)
-    printf 'INTENT_FINALIZED: a tiny todo cli\n' ;;
+    if printf '%s' "$prompt" | grep -q "A: "; then
+      printf 'INTENT_FINALIZED: %s\n' "${intent:-a tiny todo cli}"
+    else
+      printf 'Q: What should the primary user experience be?\nGUESS: a simple command-line interface — it is the smallest complete delivery.\n'
+    fi ;;
   *"issue-executor"*)
     printf 'def greeting():\n    return "hello"\n' > todo.py
     printf 'from todo import greeting\n\ndef test_greeting():\n    assert greeting() == "hello"\n' > test_todo.py
