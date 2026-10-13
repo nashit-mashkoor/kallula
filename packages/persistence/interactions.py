@@ -19,11 +19,11 @@ async def open_for_run(session: AsyncSession, run_id: str) -> PendingInteraction
 
 async def latest_response_for_run(
     session: AsyncSession, run_id: str
-) -> InteractionResponse | None:
-    """The most recent accepted response of a Run, in interaction order."""
-    return (
+) -> tuple[InteractionResponse, PendingInteraction] | None:
+    """The most recent accepted response of a Run, with its interaction."""
+    row = (
         await session.execute(
-            select(InteractionResponse)
+            select(InteractionResponse, PendingInteraction)
             .join(
                 PendingInteraction,
                 InteractionResponse.interaction_id == PendingInteraction.id,
@@ -34,4 +34,7 @@ async def latest_response_for_run(
             )
             .limit(1)
         )
-    ).scalar_one_or_none()
+    ).first()
+    if row is None:
+        return None
+    return row[0], row[1]

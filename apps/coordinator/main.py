@@ -13,6 +13,7 @@ from coordinator.loop import (
     EngineFactory,
     default_holder_id,
     process_queued_runs,
+    settle_stop_requested_runs,
 )
 from coordinator.reconcile import reconcile
 from coordinator.settings import CoordinatorSettings
@@ -51,6 +52,9 @@ async def _drive_loop(
     while not stop.is_set():
         try:
             async with session_factory() as session:
+                settled = await settle_stop_requested_runs(session, active=active)
+                if settled:
+                    logger.info("settled stop requests", extra={"count": settled})
                 processed = await process_queued_runs(
                     session,
                     holder_id=holder_id,

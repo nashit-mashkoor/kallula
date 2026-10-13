@@ -6,6 +6,7 @@ from engine.base import (
     EngineEvent,
     EngineHooks,
     EngineIdentity,
+    EngineInteraction,
     EngineOutcome,
     EngineResult,
     EngineRunRequest,
@@ -19,6 +20,16 @@ class FakeScenario(StrEnum):
     FAIL_DURING_EXECUTION = "fail_during_execution"
     STOP_AT_SAFE_BOUNDARY = "stop_at_safe_boundary"
     EMIT_WORK_ITEMS = "emit_work_items"
+    WAIT_FOR_HUMAN = "wait_for_human"
+
+
+FAKE_INTERACTION = EngineInteraction(
+    native_id="native-interaction-1",
+    kind="QUESTION",
+    question="Which UI?",
+    recommendation="menu bar",
+    final=False,
+)
 
 
 FAKE_IDENTITY = EngineIdentity(family="FAKE", revision="1", adapter_version="1")
@@ -47,6 +58,11 @@ class FakeEngine:
             )
         if self.scenario is FakeScenario.STOP_AT_SAFE_BOUNDARY:
             return EngineResult(outcome=EngineOutcome.STOPPED_SAFE)
+        if self.scenario is FakeScenario.WAIT_FOR_HUMAN:
+            return EngineResult(
+                outcome=EngineOutcome.WAITING_FOR_HUMAN,
+                interaction=FAKE_INTERACTION,
+            )
         return EngineResult(outcome=EngineOutcome.COMPLETED_VERIFIED)
 
     async def run(self, request: EngineRunRequest, hooks: EngineHooks) -> EngineResult:
@@ -57,6 +73,11 @@ class FakeEngine:
             )
         if self.scenario is FakeScenario.STOP_AT_SAFE_BOUNDARY:
             return EngineResult(outcome=EngineOutcome.STOPPED_SAFE)
+        if self.scenario is FakeScenario.WAIT_FOR_HUMAN and request.response is None:
+            return EngineResult(
+                outcome=EngineOutcome.WAITING_FOR_HUMAN,
+                interaction=FAKE_INTERACTION,
+            )
         if self.scenario is FakeScenario.EMIT_WORK_ITEMS:
             await self._emit_work_items(hooks)
         return EngineResult(outcome=EngineOutcome.COMPLETED_VERIFIED)

@@ -13,10 +13,10 @@ from api.dependencies import get_principal_id, get_session
 from api.idempotency import IdempotencyConflictError
 from api.principals import get_or_create_dev_principal
 from api.problems import problem_response
+from domain.interactions import allowed_responses
 from domain.states import (
     CommandState,
     EventSource,
-    InteractionKind,
     InteractionResponseType,
     InteractionState,
     RunControlState,
@@ -33,13 +33,6 @@ from persistence.models import (
 
 router = APIRouter(tags=["interactions"])
 
-QUESTION_RESPONSES = ("ANSWER", "USE_RECOMMENDATION", "DELEGATE_REMAINING")
-CONFIRMATION_RESPONSES = ("CONFIRM", "REQUEST_CHANGE")
-TITLES = {
-    InteractionKind.QUESTION: "Requirements question",
-    InteractionKind.FINAL_INTENT_CONFIRMATION: "Final intent confirmation",
-}
-
 
 class RespondRequest(BaseModel):
     response_type: Literal[
@@ -50,12 +43,6 @@ class RespondRequest(BaseModel):
         "DELEGATE_REMAINING",
     ]
     answer: str | None = None
-
-
-def allowed_responses(kind: InteractionKind) -> list[str]:
-    if kind is InteractionKind.FINAL_INTENT_CONFIRMATION:
-        return list(CONFIRMATION_RESPONSES)
-    return list(QUESTION_RESPONSES)
 
 
 def answer_for(

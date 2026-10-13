@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from coordinator.loop import EngineFactory
+from coordinator.loop import EngineFactory, _finish_waiting
 from domain.states import (
     AttemptState,
     EventSeverity,
@@ -14,6 +14,7 @@ from domain.states import (
 )
 from domain.transitions import can_transition_run, next_attempt_state, next_run_state
 from engine.base import EngineError, EngineOutcome, EngineResult
+from persistence import interactions as interactions_repo
 from persistence import leases
 from persistence.events import append_event
 from persistence.models import ExecutionAttempt, Run
@@ -60,9 +61,23 @@ async def _finalize(
     moment: datetime,
     result: EngineResult,
 ) -> None:
+    if (
+        result.outcome is EngineOutcome.WAITING_FOR_HUMAN
+        and result.interaction is not None
+        and run.control_state is not RunControlState.STOP_REQUESTED
+        and (
+            run.control_state is RunControlState.WAITING_FOR_HUMAN
+            or can_transition_run(run.control_state, RunControlState.WAITING_FOR_HUMAN)
+        )
+    ):
+        await _finish_waiting(session, run, attempt, moment, result.interaction)
+        return
     if result.outcome is EngineOutcome.COMPLETED_VERIFIED:
         target = RunControlState.COMPLETED
-    elif result.outcome is EngineOutcome.STOPPED_SAFE:
+    elif result.outcome is EngineOutcome.STOPPED_SAFE or (
+        result.outcome is EngineOutcome.WAITING_FOR_HUMAN
+        and run.control_state is RunControlState.STOP_REQUESTED
+    ):
         target = RunControlState.STOPPED
     else:
         target = RunControlState.FAILED
@@ -186,6 +201,59 @@ async def reconcile(
             "reconciled run",
             extra={"run_id": run.id, "state": run.control_state.value},
         )
+    reconciled += await _repair_waiting_runs(
+        session, engine_factory=engine_factory, moment=moment
+    )
     if reconciled:
         await session.commit()
     return reconciled
+
+
+async def _repair_waiting_runs(
+    session: AsyncSession,
+    *,
+    engine_factory: EngineFactory,
+    moment: datetime,
+) -> int:
+    """Keep Runs waiting for human input consistent across restarts.
+
+    A waiting Run must point at its open interaction; if the interaction is
+    missing, the durable native state decides what happens next.
+    """
+    runs = (
+        (
+            await session.execute(
+                select(Run)
+                .where(Run.control_state == RunControlState.WAITING_FOR_HUMAN)
+                .order_by(Run.ordinal)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    repaired = 0
+    for run in runs:
+        pending = await interactions_repo.open_for_run(session, run.id)
+        if pending is not None:
+            if run.pending_interaction_id != pending.id:
+                run.pending_interaction_id = pending.id
+                run.version += 1
+                run.updated_at = moment
+                repaired += 1
+            continue
+        try:
+            engine = await engine_factory(session, run)
+            result = engine.inspect_result()
+        except EngineError as exc:
+            result = EngineResult(
+                outcome=EngineOutcome.FAILED, failure_summary=exc.detail
+            )
+        await _finalize(session, run, None, moment, result)
+        run.version += 1
+        run.updated_at = moment
+        repaired += 1
+        logger.info(
+            "repaired waiting run",
+            extra={"run_id": run.id, "state": run.control_state.value},
+        )
+    return repaired
