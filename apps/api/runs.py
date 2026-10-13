@@ -315,6 +315,37 @@ async def create_run(
             headers={"ETag": etag(snapshot_response.get("version", 1))},
         )
 
+    active_run = (
+        await session.execute(
+            select(Run)
+            .where(
+                Run.project_id == project.id,
+                Run.control_state.in_(
+                    (
+                        RunControlState.QUEUED,
+                        RunControlState.STARTING,
+                        RunControlState.RUNNING,
+                        RunControlState.WAITING_FOR_HUMAN,
+                        RunControlState.STOP_REQUESTED,
+                    )
+                ),
+            )
+            .order_by(Run.ordinal)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if active_run is not None:
+        return problem_response(
+            request,
+            409,
+            title="Conflict",
+            detail=(
+                "Another Run of this Project is not finished; it continues the "
+                "same execution objective."
+            ),
+            code="PROJECT_EXECUTION_BUSY",
+        )
+
     installation = await installations.default_installation(session)
     if installation is None or not installations.launch_compatible(installation):
         return problem_response(

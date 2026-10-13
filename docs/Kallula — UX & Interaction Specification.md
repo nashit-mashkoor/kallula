@@ -1196,6 +1196,10 @@ Show:
 - stop action when valid;
 - pending interaction if any.
 
+While the current Run is non-terminal, the Project Overview does not offer
+starting another Run; it links to the active Run (and its pending interaction)
+instead.
+
 ## 21.4 Completed Run
 
 Show clear result actions:

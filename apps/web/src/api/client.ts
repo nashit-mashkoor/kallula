@@ -4,13 +4,39 @@ export function apiUrl(path: string): string {
   return `${API_URL}${path}`;
 }
 
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+    detail?: string,
+  ) {
+    super(detail ?? `Request failed with status ${status}`);
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(apiUrl(path), {
     headers: { Accept: "application/json", ...(init?.headers ?? {}) },
     ...init,
   });
   if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+    let code: string | null = null;
+    let detail: string | undefined;
+    try {
+      const problem = (await response.json()) as {
+        code?: unknown;
+        detail?: unknown;
+      };
+      if (typeof problem.code === "string") {
+        code = problem.code;
+      }
+      if (typeof problem.detail === "string") {
+        detail = problem.detail;
+      }
+    } catch {
+      // not a problem+json body
+    }
+    throw new ApiError(response.status, code, detail);
   }
   return (await response.json()) as T;
 }

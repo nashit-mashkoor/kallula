@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 
-import { createRun, getProject, listRuns } from "../api/client";
+import { ApiError, createRun, getProject, listRuns } from "../api/client";
 import { useAccountStream } from "../hooks/useAccountStream";
+import { isActiveRunState } from "../runState";
 
 export function ProjectPage() {
   const { projectId = "" } = useParams();
+  const navigate = useNavigate();
   const [objective, setObjective] = useState("Build the initial product");
   const queryClient = useQueryClient();
 
@@ -26,10 +28,18 @@ export function ProjectPage() {
   });
   const mutation = useMutation({
     mutationFn: () => createRun(projectId, objective),
-    onSuccess: () => {
+    onSuccess: (run) => {
       void queryClient.invalidateQueries({ queryKey: ["runs", projectId] });
+      navigate(`/projects/${projectId}/runs/${run.id}`);
     },
+    onError: () => refresh(),
   });
+  const activeRun = runs.data?.items.find((run) =>
+    isActiveRunState(run.control_state),
+  );
+  const busy =
+    mutation.error instanceof ApiError &&
+    mutation.error.code === "PROJECT_EXECUTION_BUSY";
 
   return (
     <main>
@@ -40,21 +50,46 @@ export function ProjectPage() {
       <p>Workspace: {project.data?.workspace_status ?? "unknown"}</p>
 
       <h2>New run</h2>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          mutation.mutate();
-        }}
-      >
-        <label>
-          Objective
-          <input value={objective} onChange={(event) => setObjective(event.target.value)} required />
-        </label>
-        <button type="submit" disabled={mutation.isPending}>
-          Start run
-        </button>
-      </form>
-      {mutation.isError && <p>Could not create the run.</p>}
+      {activeRun ? (
+        <p>
+          Run {activeRun.ordinal} is not finished (
+          {activeRun.control_state.replaceAll("_", " ").toLowerCase()}) —{" "}
+          <Link to={`/projects/${projectId}/runs/${activeRun.id}`}>
+            {activeRun.control_state === "WAITING_FOR_HUMAN"
+              ? "answer the question"
+              : "open it"}
+          </Link>{" "}
+          to continue the same objective.
+        </p>
+      ) : (
+        <>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              mutation.mutate();
+            }}
+          >
+            <label>
+              Objective
+              <input
+                value={objective}
+                onChange={(event) => setObjective(event.target.value)}
+                required
+              />
+            </label>
+            <button type="submit" disabled={mutation.isPending}>
+              Start run
+            </button>
+          </form>
+          {mutation.isError && (
+            <p role="alert">
+              {busy
+                ? "Another Run of this Project is still active — open it to continue."
+                : "Could not create the run."}
+            </p>
+          )}
+        </>
+      )}
 
       <h2>Runs</h2>
       <ul>

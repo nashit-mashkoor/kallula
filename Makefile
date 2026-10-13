@@ -34,7 +34,7 @@ format:
 	uv run ruff check --fix .
 
 api:
-	uv run uvicorn api.main:app --reload --port 8000
+	uv run uvicorn api.main:app --reload --reload-dir apps --reload-dir packages --timeout-graceful-shutdown 3 --port 8000
 
 coordinator:
 	uv run python -m coordinator

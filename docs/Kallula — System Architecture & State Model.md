@@ -725,6 +725,12 @@ Examples that normally remain the same Run:
 - relaunching after a crashed worker with compatible checkpoint state;
 - retrying an infrastructure-level startup failure before engine work begins.
 
+A Project therefore has at most one non-terminal Run. Creating a new Run while
+another Run of the Project is `QUEUED`, `STARTING`, `RUNNING`,
+`WAITING_FOR_HUMAN`, or `STOP_REQUESTED` is rejected; new Runs follow earlier
+terminal Runs. This prevents a suspended Run's pending engine interaction from
+being resumed through a different Run.
+
 This model allows Kallula to preserve both logical user intent and physical execution history.
 
 ---

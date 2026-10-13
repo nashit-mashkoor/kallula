@@ -1,6 +1,15 @@
-from helpers import build_client, fetch_events, seed_installation
+from helpers import (
+    build_client,
+    fetch_events,
+    seed_installation,
+    set_run_state,
+)
 
-from domain.states import CompatibilityStatus, EngineInstallationStatus
+from domain.states import (
+    CompatibilityStatus,
+    EngineInstallationStatus,
+    RunControlState,
+)
 
 
 def create_project(client, key="project-key"):
@@ -125,13 +134,37 @@ def test_create_run_rejects_launch_incompatible_installation(database_url):
     assert response.json()["code"] == "ENGINE_INCOMPATIBLE"
 
 
-def test_second_run_gets_next_ordinal(client):
+def test_second_run_gets_next_ordinal(client, database_url):
     project = create_project(client)
 
-    create_run(client, project["id"], key="r1")
+    first = create_run(client, project["id"], key="r1").json()
+    set_run_state(database_url, first["id"], RunControlState.COMPLETED)
     second = create_run(client, project["id"], key="r2").json()
 
     assert second["ordinal"] == 2
+
+
+def test_create_run_rejects_while_another_run_is_open(client):
+    project = create_project(client, key="busy-project")
+    assert create_run(client, project["id"], key="busy-1").status_code == 201
+
+    second = create_run(client, project["id"], key="busy-2")
+
+    assert second.status_code == 409
+    assert second.json()["code"] == "PROJECT_EXECUTION_BUSY"
+    listing = client.get(f"/api/v1/projects/{project['id']}/runs").json()
+    assert len(listing["items"]) == 1
+
+
+def test_create_run_rejects_while_a_run_waits_for_human(client, database_url):
+    project = create_project(client, key="waiting-project")
+    first = create_run(client, project["id"], key="waiting-1").json()
+    set_run_state(database_url, first["id"], RunControlState.WAITING_FOR_HUMAN)
+
+    second = create_run(client, project["id"], key="waiting-2")
+
+    assert second.status_code == 409
+    assert second.json()["code"] == "PROJECT_EXECUTION_BUSY"
 
 
 def test_unknown_run_returns_problem(client):

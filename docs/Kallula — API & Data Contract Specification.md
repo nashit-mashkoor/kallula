@@ -1120,6 +1120,12 @@ Creation freezes the effective configuration snapshot before engine work begins.
 
 Creation pins the default Engine Installation into the snapshot and the Run. If no default installation exists or its launch compatibility is not `SUPPORTED`, creation fails with `ENGINE_INCOMPATIBLE` and no Run is created.
 
+A Project has at most one non-terminal Run. Creating a Run while another Run of
+the Project is `QUEUED`, `STARTING`, `RUNNING`, `WAITING_FOR_HUMAN`, or
+`STOP_REQUESTED` fails with `PROJECT_EXECUTION_BUSY` and no Run is created.
+Continuing after a pending interaction, a safe stop, or worker loss is the same
+Run (System Architecture §11.3).
+
 ---
 
 # 22. Run Effective Configuration Snapshot
