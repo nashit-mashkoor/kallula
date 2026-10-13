@@ -273,9 +273,9 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation), M1 (Project and Run skeleton), M2 (Durable Events and live updates), M3 (real Siesta autonomous execution), and M5 (safe stop, resume, and recovery) are complete. M4 (durable human interaction) is next.
+M0 (Repository and Development Foundation), M1 (Project and Run skeleton), M2 (Durable Events and live updates), M3 (real Siesta autonomous execution), M4 (durable human interaction), and M5 (safe stop, resume, and recovery) are complete. The Gate B review is next.
 
-M5 shipped before M4: safe stop, resume, and recovery work against the pinned Siesta revision, while M4 needs the adapted Siesta build (engine-side human-interaction hooks). M4 remains next, and the Gate B review follows M4.
+M5 shipped before M4: safe stop, resume, and recovery work against the pinned Siesta revision, while M4 needed the adapted Siesta build. M4 now ships from the maintained fork (`kallula` branch, ADR-011), and the Gate B review follows it.
 
 ```text
 M0  Repository and development foundation   [complete]
@@ -296,11 +296,11 @@ M3  Real Siesta autonomous execution        [complete]
  |                               |
  v                               v
 M5  Safe stop, resume, recovery  M4  Durable human interaction
-    [complete]                       [next]
+    [complete]                       [complete]
                                      |
                                      v
                                  Gate B review
-                                     [after M4]
+                                     [next]
 ```
 
 The **Test & Compatibility Strategy** remains deferred until the implementation is concrete enough to define executable release gates. It becomes required during M12 before release.
@@ -316,7 +316,7 @@ label: m0   Repository and Development Foundation   [complete]
 label: m1   Project and Run Skeleton                [complete]
 label: m2   Durable Events and Live Updates         [complete]
 label: m3   Real Siesta Autonomous Execution        [complete]
-label: m4   Durable Human Interaction               [next]
+label: m4   Durable Human Interaction               [complete]
 label: m5   Safe Stop, Resume, and Recovery         [complete]
 ```
 
