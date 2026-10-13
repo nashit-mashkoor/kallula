@@ -9,7 +9,7 @@
 **Security design:** [`Kallula — Security & Credentials Design.md`](./Kallula%20%E2%80%94%20Security%20%26%20Credentials%20Design.md)  
 **Execution and Preview design:** [`Kallula — Execution Environment & Preview Design.md`](./Kallula%20%E2%80%94%20Execution%20Environment%20%26%20Preview%20Design.md)  
 **API and data contract:** [`Kallula — API & Data Contract Specification.md`](./Kallula%20%E2%80%94%20API%20%26%20Data%20Contract%20Specification.md)  
-**Implementation status:** M0–M5 complete; Gate B review next  
+**Implementation status:** M0–M5 complete; Gate B passed — CONTINUE to M6  
 **Purpose:** Turn the Kallula design into a sequence of small, working, vertical product slices. Each milestone must produce usable software and preserve the existing architecture.
 
 > **Implementation rule:** Do not build horizontal infrastructure because it might be useful later. Build the smallest complete path that proves the next Kallula capability.
@@ -1225,6 +1225,35 @@ STOP
 The central product assumption is not useful enough to justify more infrastructure.
 
 No M6+ work should begin before this review.
+
+## 17.1 Gate B outcome
+
+**Result:** PASSED — 2026-10-13. Decision: CONTINUE to M6.
+
+The §3.2 flow works end to end with the real adapted engine build and a scripted model: a question suspends the Run and releases the worker; the answer survives an API restart and continues the same Run in a new Attempt; safe stop, resume, and restart recovery keep durable state correct.
+
+Evidence:
+
+| Question | Result |
+|---|---|
+| Browser-controlled Siesta execution is useful | real engine Runs are driven through the browser; interview, progress, stop, and resume verified end to end |
+| Project/Run model is natural | Project owns the workspace; resume is the same Run with a new Attempt; `COMPLETED` never returns to non-terminal |
+| `WAITING_FOR_HUMAN` works well | durable pending interaction with exactly-once answers; worker released; final-intent confirmation, refinement, and delegation verified |
+| Safe stop/resume solves a real problem | cooperative marker stop at issue boundaries; resume as a new Attempt; waiting Runs settle to `STOPPED` |
+| Run and Attempt boundaries stay correct | transition map and coordinator/integration tests; one non-terminal Run per Project enforced |
+| Adapter boundary holds | only the coordinator composition root imports `engine.siesta`; no native file names or kinds outside `engine/siesta` |
+| Reconciliation is understandable | active-Run recovery, waiting-Run repair, and stop settlement are separate tested paths |
+| Recovery without manual database edits | stop requests settle, waiting pointers repair, questions reuse or supersede, and resume is a durable command |
+
+Follow-up landed from this review: a second non-terminal Run per Project is rejected with `PROJECT_EXECUTION_BUSY`, and the development API reload no longer hangs on engine writes or open event streams.
+
+Open items carried into M6+:
+
+- one controlled real-provider Run (requires explicit operator approval);
+- no browser end-to-end automation yet;
+- explicit engine workspace selection (KSA-REQ-040/041) so a new objective can continue an existing Project; today a different objective needs a new Project.
+
+Full suite at the gate: backend 219 tests, frontend 35 tests, engine fork suite 243 tests, ruff and format clean, migrations `0001`-`0007` up/down from zero, CI run `38329119772` green (backend, frontend, migrations, compose).
 
 ---
 

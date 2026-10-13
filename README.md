@@ -273,9 +273,9 @@ git submodule update --init --recursive
 
 ## Current status
 
-M0 (Repository and Development Foundation), M1 (Project and Run skeleton), M2 (Durable Events and live updates), M3 (real Siesta autonomous execution), M4 (durable human interaction), and M5 (safe stop, resume, and recovery) are complete. The Gate B review is next.
+M0 (Repository and Development Foundation), M1 (Project and Run skeleton), M2 (Durable Events and live updates), M3 (real Siesta autonomous execution), M4 (durable human interaction), and M5 (safe stop, resume, and recovery) are complete, and the Gate B review passed with a CONTINUE decision. M6 (Files, Git, and Verification) is next.
 
-M5 shipped before M4: safe stop, resume, and recovery work against the pinned Siesta revision, while M4 needed the adapted Siesta build. M4 now ships from the maintained fork (`kallula` branch, ADR-011), and the Gate B review follows it.
+M5 shipped before M4: safe stop, resume, and recovery work against the pinned Siesta revision, while M4 needed the adapted Siesta build. M4 now ships from the maintained fork (`kallula` branch, ADR-011), and the Gate B outcome is recorded in the Implementation Plan §17.1.
 
 ```text
 M0  Repository and development foundation   [complete]
@@ -300,6 +300,10 @@ M5  Safe stop, resume, recovery  M4  Durable human interaction
                                      |
                                      v
                                  Gate B review
+                                     [passed]
+                                     |
+                                     v
+                                 M6  Files, Git, and Verification
                                      [next]
 ```
 
