@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 
 import {
   artifactContentUrl,
+  getInteraction,
   getRun,
   getRunConfiguration,
   listArtifacts,
@@ -12,7 +13,9 @@ import {
   resumeRun,
   stopRun,
 } from "../api/client";
+import { InterviewPanel } from "../components/InterviewPanel";
 import { useRunEvents } from "../hooks/useRunEvents";
+import { isWaitingForHuman } from "../interactions";
 import {
   attemptLabel,
   blockedResumeReason,
@@ -48,6 +51,12 @@ export function RunPage() {
     queryKey: ["run-configuration", runId],
     queryFn: () => getRunConfiguration(runId),
   });
+  const interactionId = run.data?.pending_interaction_id ?? null;
+  const interaction = useQuery({
+    queryKey: ["interaction", interactionId],
+    queryFn: () => getInteraction(interactionId ?? ""),
+    enabled: Boolean(interactionId),
+  });
   const { events, status } = useRunEvents(runId);
 
   const refresh = () => {
@@ -55,6 +64,7 @@ export function RunPage() {
     void queryClient.invalidateQueries({ queryKey: ["attempts", runId] });
     void queryClient.invalidateQueries({ queryKey: ["work-items", runId] });
     void queryClient.invalidateQueries({ queryKey: ["artifacts", runId] });
+    void queryClient.invalidateQueries({ queryKey: ["interaction", interactionId] });
   };
 
   const stop = useMutation({ mutationFn: () => stopRun(runId), onSuccess: refresh });
@@ -68,8 +78,9 @@ export function RunPage() {
       void queryClient.invalidateQueries({ queryKey: ["run", runId] });
       void queryClient.invalidateQueries({ queryKey: ["work-items", runId] });
       void queryClient.invalidateQueries({ queryKey: ["artifacts", runId] });
+      void queryClient.invalidateQueries({ queryKey: ["interaction", interactionId] });
     }
-  }, [events.length, queryClient, runId]);
+  }, [events.length, queryClient, runId, interactionId]);
 
   const terminal = run.data ? isTerminalState(run.data.control_state) : false;
   const stages = stageProgress(run.data?.stage ?? null, events);
@@ -90,6 +101,13 @@ export function RunPage() {
         {status === "live" ? "live" : status === "stale" ? "reconnecting..." : "connecting..."}
         {terminal ? " — finished" : ""}
       </p>
+      {run.data && isWaitingForHuman(run.data) && interaction.data && (
+        <InterviewPanel
+          interaction={interaction.data}
+          runState={run.data.control_state}
+          onSubmitted={refresh}
+        />
+      )}
       {run.data && (
         <dl>
           <dt>Objective</dt>

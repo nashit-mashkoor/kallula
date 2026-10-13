@@ -20,6 +20,7 @@ function run(overrides: Partial<Run> = {}): Run {
     active_work_item_id: null,
     work_item_summary: null,
     engine_installation_id: null,
+    pending_interaction_id: null,
     recovery: { resume_allowed: false, reason: null },
     failure: null,
     version: 1,

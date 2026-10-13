@@ -61,6 +61,7 @@ export type Run = {
   active_work_item_id: string | null;
   work_item_summary: WorkItemSummary | null;
   engine_installation_id: string | null;
+  pending_interaction_id: string | null;
   recovery: { resume_allowed: boolean; reason: string | null };
   failure: {
     class: string | null;
@@ -144,6 +145,34 @@ export type RunConfiguration = {
   capability_manifest_hash: string | null;
 };
 
+export type InteractionResponseType =
+  | "ANSWER"
+  | "USE_RECOMMENDATION"
+  | "CONFIRM"
+  | "REQUEST_CHANGE"
+  | "DELEGATE_REMAINING";
+
+export type InteractionTurn = {
+  question: string;
+  answer: string;
+};
+
+export type Interaction = {
+  id: string;
+  run_id: string;
+  attempt_id: string | null;
+  kind: string;
+  status: string;
+  title: string;
+  prompt: string;
+  recommendation: string | null;
+  context: { accepted_turns?: InteractionTurn[] };
+  allowed_responses: string[];
+  created_at: string;
+  resolved_at: string | null;
+  version: number;
+};
+
 export function listProjects(): Promise<{ items: Project[] }> {
   return apiGet("/api/v1/projects");
 }
@@ -198,6 +227,25 @@ export function getRunResumeCompatibility(
   runId: string,
 ): Promise<ResumeCompatibility> {
   return apiGet(`/api/v1/runs/${runId}/resume-compatibility`);
+}
+
+export function listOpenInteractions(): Promise<{ items: Interaction[] }> {
+  return apiGet("/api/v1/interactions?status=OPEN");
+}
+
+export function getInteraction(interactionId: string): Promise<Interaction> {
+  return apiGet(`/api/v1/interactions/${interactionId}`);
+}
+
+export function respondToInteraction(
+  interactionId: string,
+  responseType: InteractionResponseType,
+  answer?: string,
+): Promise<Command> {
+  return apiPost(`/api/v1/interactions/${interactionId}/commands/respond`, {
+    response_type: responseType,
+    ...(answer !== undefined ? { answer } : {}),
+  });
 }
 
 export function artifactContentUrl(artifactId: string): string {
